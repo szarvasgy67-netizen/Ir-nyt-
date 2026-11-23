@@ -66,6 +66,73 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
                 last_error = e
                 time.sleep(0.5)
     raise RuntimeError(f"Hiba: {last_error}")
+BEREA_EVAL_CRITERIA = """BEREAI MINTA (ApCsel 17:11): 1. Nyitott, tiszteletteljes meghallgatás. 2. Kritikus, józan vizsgálat (nem dől be kenetteljes/zsaroló frázisoknak). 3. Kedves, de kőkemény határhúzás alakoskodás nélkül ('igen-igen, nem-nem')."""
+
+st.sidebar.divider()
+mode = st.sidebar.radio("🎯 Mód:", ["🎲 Dinamikus Szimulátor", "📋 Saját beszélgetés elemzése", "🌱 Missziós Sáfárság-kalkulátor"])
+
+if mode == "🎲 Dinamikus Szimulátor":
+    category = st.sidebar.selectbox("🌍 Témakör:", [
+        "Teljesen véletlenszerű valós élethelyzet", "Gyülekezeti konfliktusok és manipuláció",
+        "Lelki köntösbe bújtatott szervezeti / anyagi érdekek", "Munkahelyi / egyetemi világnézeti viták",
+        "Családi határok, érzelmi zsarolás", "Pénzügyi segítségkérés és kodependencia"
+    ])
+    if st.sidebar.button("✨ Új szituáció", type="primary") and api_key:
+        with st.spinner("Generálás..."):
+            new_scen = generate_new_scenario(category, api_key, selected_model, available_models)
+            st.session_state["dyn_scenario"] = new_scen
+            st.session_state["rk_messages"] = [{"role": "assistant", "content": new_scen["opening_line"]}]
+            st.session_state.pop("rk_eval", None)
+            st.session_state.pop("trigger_eval", None)
+            st.rerun()
+    if len(st.session_state.get("rk_messages", [])) >= 2 and "dyn_scenario" in st.session_state:
+        if st.sidebar.button("⚖️ Kiértékelés MOST"):
+            st.session_state["trigger_eval"] = True
+
+if mode == "🎲 Dinamikus Szimulátor":
+    if not api_key:
+        st.warning("👈 Add meg az API kulcsodat az oldalsávon!")
+        st.stop()
+    if "dyn_scenario" not in st.session_state:
+        new_scen = generate_new_scenario(category, api_key, selected_model, available_models)
+        st.session_state["dyn_scenario"] = new_scen
+        st.session_state["rk_messages"] = [{"role": "assistant", "content": new_scen["opening_line"]}]
+
+    scen = st.session_state["dyn_scenario"]
+    st.subheader(f"🎭 {scen['title']}")
+    st.info(f"**Helyzetkép:** {scen['context']}")
+    for msg in st.session_state["rk_messages"]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    if st.session_state.get("trigger_eval"):
+        st.divider()
+        st.markdown("### 📊 Bereai Kiértékelés")
+        transcript = "\n".join([f"{'Másik fél' if m['role']=='assistant' else 'Te'}: {m['content']}" for m in st.session_state["rk_messages"]])
+        eval_prompt = f"""Értékeld 'Te' teljesítményét a BEREAI MINTA alapján! {BEREA_EVAL_CRITERIA}
+        HELYZET: {scen['context']} | REJTETT MOTIVÁCIÓ: {scen['hidden_motivation']} | BESZÉLGETÉS:\n{transcript}
+        Bontás (sallangmentesen): 1. **Bereai mérleg (A lepel lehull)** 2. **4 pillér pontozása (1-10 + 1 mondat):** Nyitott Meghallgatás, Józan Vizsgálat, Kedves de Kemény Határhúzás, Álarc nélküli Őszinteség. 3. **2 egyenes magyar válasz-alternatíva** (tilos a vallásos zsargon!)."""
+        stream_gen, _ = stream_gemini_fast(eval_prompt, api_key, selected_model, available_models, temp=0.3)
+        st.session_state["rk_eval"] = st.write_stream(stream_gen)
+        st.session_state["trigger_eval"] = False
+    elif "rk_eval" in st.session_state:
+        st.divider()
+        st.markdown("### 📊 Bereai Kiértékelés")
+        st.markdown(st.session_state["rk_eval"])
+
+    if "rk_eval" in st.session_state:
+        with st.expander("🔍 Eredeti karakterleírás és rejtett motiváció"):
+            st.write(f"**Rejtett motiváció:** {scen['hidden_motivation']}\n\n**Karakter:** {scen['persona_prompt']}")
+
+    if user_input := st.chat_input("Írd le, hogyan reagálsz..."):
+        st.session_state["rk_messages"].append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        history_text = "\n".join([f"{'Másik fél' if m['role']=='assistant' else 'Felhasználó'}: {m['content']}" for m in st.session_state["rk_messages"]])
+        roleplay_prompt = f"Szerepjáték. Csak a másik fél nevében beszélj! HELYZET: {scen['context']} | KARAKTERED: {scen['persona_prompt']} | REJTETT CÉLOD: {scen['hidden_motivation']}\nBESZÉLGETÉS:\n{history_text}\nReagálj 2-3 mondatban:"
+        with st.chat_message("assistant"):
+            stream_gen, _ = stream_gemini_fast(roleplay_prompt, api_key, selected_model, available_models, temp=0.7)
+            st.session_state["rk_messages"].append({"role": "assistant", "content": st.write_stream(stream_gen)})
 elif mode == "📋 Saját beszélgetés elemzése":
     st.subheader("📋 Valós beszélgetés bereai kiértékelése")
     user_transcript = st.text_area("Másold be a beszélgetést:", height=200, placeholder="Én: ...\nMásik fél: ...")

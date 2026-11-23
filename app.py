@@ -1,10 +1,12 @@
 import streamlit as st
+import json
+import random
 from google import genai
 from google.genai import types
 
-st.set_page_config(page_title="Kegyelem & Igazság – Kommunikációs és Határhúzó Szimulátor", layout="wide")
-st.title("🧭 Kegyelem & Igazság – Kommunikációs és Határhúzó Szimulátor")
-st.caption("Interaktív szituációs gyakorlótér és elemző: nyitott befogadás, bibliai iránytű és józan pszichológiai határok.")
+st.set_page_config(page_title="Kegyelem & Igazság – Dinamikus Szimulátor", layout="wide")
+st.title("🧭 Kegyelem & Igazság – Dinamikus Szituációs Szimulátor")
+st.caption("Minden körben új, valós élethelyzeteken alapuló próbatétel: nyitott befogadás, bibliai iránytű és józan határok.")
 
 # --- OLDALSÁV: API KULCS ÉS MODELL ---
 st.sidebar.header("🔑 AI Settings")
@@ -28,7 +30,29 @@ selected_model = st.sidebar.selectbox("🤖 Gemini Modell:", available_models, i
 def get_gemini_client(key):
     return genai.Client(api_key=key)
 
-def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.3):
+def call_gemini_json(prompt, key, preferred_model, fallback_models):
+    """Új, strukturált szituáció generálása JSON formátumban."""
+    models_to_try = [preferred_model] + [m for m in fallback_models if m != preferred_model]
+    cfg = types.GenerateContentConfig(
+        temperature=0.95,
+        response_mime_type="application/json"
+    )
+    client = get_gemini_client(key)
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=cfg
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            last_error = e
+            continue
+    raise RuntimeError(f"Nem sikerült új szituációt generálni: {last_error}")
+
+def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.5):
     models_to_try = ["gemini-3.5-flash-lite", preferred_model] + [
         m for m in fallback_models if m not in ("gemini-3.5-flash-lite", preferred_model)
     ]
@@ -61,43 +85,157 @@ def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.3):
             continue
     raise RuntimeError(f"Minden Gemini modell hibát adott: {last_error}")
 
-# --- SZITUÁCIÓK DEFINIÁLÁSA (REJTETT MOTIVÁCIÓKKAL) ---
-SCENARIOS = {
-    "1. Polgárpukkasztó vendég a gyülekezetben (Kereső vs. Provokátor?)": {
-        "context": "Vasárnapi istentisztelet előtt egy fiatal férfi szakadt ruhában, feltűnő külsővel beül az első sorba, és hangosan megjegyzi a mellette ülőnek: 'Na, nézzük, mennyi képmutató gyűlt össze ma is.' Te vagy az egyik gyülekezeti tag/vezető, aki odalép hozzá.",
-        "persona_prompt": "Te egy 23 éves fiatal férfi vagy, aki sok vallási képmutatást látott gyerekkorában, ezért védekezésből provokatív és cinikus vagy. REJTETT MOTIVÁCIÓD: Valójában mély válságban vagy és keresed, van-e bárhol őszinte ember, de ha kioktatnak vagy prédikálnak neked, azonnal támadsz és elmenekülsz. Ha viszont őszintén, emberként kérdeznek, fokozatosan megnyílsz, de nem térsz meg azonnal varázsütésre.",
-        "opening_line": "Mi van, te vagy itt a biztonsági őr, aki kidob, mert nem öltönyben jöttem?"
-    },
-    "2. LMBTQ-aktivista ismerős éles kérdése (Kegyelem vs. Igazság)": {
-        "context": "Egy régi egyetemi évfolyamtársaddal kávézol, aki nyíltan LMBTQ-aktivista. Tudja rólad, hogy komolyan veszed a Bibliát, és rákérdez, hogyan tudsz egyszerre barátkozni vele és hinni egy szerinte 'kirekesztő' könyvben.",
-        "persona_prompt": "Te egy intelligens, érzékeny egyetemi oktató vagy. REJTETT MOTIVÁCIÓD: Kíváncsi vagy, hogy a beszélgetőpartnered valódi, önazonos keresztény-e, vagy csak a társadalmi nyomásnak megfelelve feladja a saját hitét, esetleg elutasítóan kioktat. Ha behódol és relativizálja a Bibliát, elveszíted iránta a tiszteletedet. Ha ítélkező, megszakítod a beszélgetést. Ha szelíd, őszinte és nem megalkuvó, tisztelettel vitázol tovább.",
-        "opening_line": "Őszintén kérdezem: ha a Bibliád bűnnek tartja az életformámat, akkor ez a kávézás most csak egy udvarias térítési kísérlet, vagy te már modernizáltad a nézeteidet?"
-    },
-    "3. Rejtett manipulátor a közösségben (Határhúzás & 'Kígyó-okosság')": {
-        "context": "Egy hónapja jár a közösségbe egy rendkívül kedves, sokat segítő új tag, aki mindenkit dicsér, de közben finoman mások ellen hangolja a tagokat, és most tőled kér pénzt valamint bizalmas információkat egy másik gyülekezeti tagról.",
-        "persona_prompt": "Te egy rejtett nárcisztikus / manipulátor vagy, aki keresztény zsargont használ ('Isten vezetett hozzád', 'szeretetből kérdezem'). REJTETT MOTIVÁCIÓD: Információt és befolyást akarsz szerezni a közösségben. Ha a felhasználó naiv és 'Megmentő' szerepbe esve mindent megad, kihasználod. Ha kedvesen, de határozottan nemet mond és határokat húz, sértődötten próbálsz bűntudatot kelteni benne ('Azt hittem, itt valódi szeretet van...').",
-        "opening_line": "Olyan jó, hogy végre egy igazán lelki emberrel beszélhetek! Tudod, nagyon aggódom Péterért, mesélnél róla bizalmasan, mi a gond a házasságával, hogy jobban tudjak imádkozni érte? És sajnos most megszorultam, 50 ezer forinttal ki tudnál segíteni holnapig?"
-    },
-    "4. Saját valós beszélgetés / konfliktus elemzése": {
-        "context": "Másold be egy megtörtént beszélgetésedet (pl. Messenger, e-mail, gyülekezeti vagy családi vita), és az AI elemzi a Kegyelem, Igazság, Határhúzás és Kodependencia szempontjából.",
-        "persona_prompt": None,
-        "opening_line": None
-    }
-}
+def generate_new_scenario(category, key, preferred_model, fallback_models):
+    seed = random.randint(1000, 99999)
+    gen_prompt = f"""
+    Készíts egy életszerű, feszült, valós emberi szituációt (véletlen mag: {seed}), amely próbára teszi a keresztény kommunikációt: 
+    a Kegyelem (befogadás, szelídség), az Igazság (bibliai hűség megalkuvás nélkül) és a Józan Határhúzás ('kígyó-okosság', manipuláció felismerése) egyensúlyát.
 
+    Választott témakör: {category}
+
+    Fontos szabályok:
+    - Kerüld a sablonos, mesterkélt kliséket! Legyen hús-vér, hétköznapi magyar kontextus (pl. munkahelyi ebédszünet, családi vacsora, gyülekezeti kávézás, szomszédi vita, baráti üzenetváltás, pénzkérés, pletyka, világnézeti számonkérés, lelki zsarolás).
+    - A másik fél lehet őszinte kereső, sebzett szkeptikus, passzív-agresszív rokon, rejtett manipulátor vagy őszintén kíváncsi vitapartner – de ez ne legyen azonnal egyértelmű!
+
+    Válaszolj KIZÁRÓLAG az alábbi JSON struktúrában:
+    {{
+        "title": "Rövid, figyelemfelkeltő cím",
+        "context": "2-3 mondatos helyzetleírás (hol vagyunk, ki a másik fél, mi az előzmény).",
+        "persona_prompt": "Részletes szerepinstrukció az AI-nak: ki vagy, hogyan beszélsz, hogyan reagálsz, ha prédikálnak neked, ha megalkuszol, vagy ha határokat húznak.",
+        "hidden_motivation": "1-2 mondatos összefoglaló arról, mi a másik fél valódi, rejtett szándéka vagy lelki háttere.",
+        "opening_line": "A másik fél első, életszerű nyitómondata, amivel megszólít téged."
+    }}
+    """
+    return call_gemini_json(gen_prompt, key, preferred_model, fallback_models)
+# --- OLDALSÁV: MÓDVÁLASZTÁS ---
 st.sidebar.divider()
-selected_scenario_name = st.sidebar.selectbox("🎭 Válassz szituációt:", list(SCENARIOS.keys()))
-scenario = SCENARIOS[selected_scenario_name]
+mode = st.sidebar.radio(
+    "🎯 Mód kiválasztása:",
+    ["🎲 Dinamikus Szimulátor (Élő szerepjáték)", "📋 Saját beszélgetés elemzése"]
+)
 
-if st.sidebar.button("🔄 Beszélgetés újrakezdése"):
-    st.session_state.pop("rk_messages", None)
-    st.session_state.pop("rk_eval", None)
-    st.rerun()
+if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
+    category = st.sidebar.selectbox(
+        "🌍 Élethelyzet témaköre:",
+        [
+            "Teljesen véletlenszerű valós élethelyzet",
+            "Gyülekezeti / közösségi konfliktusok és manipuláció",
+            "Munkahelyi / egyetemi világnézeti viták",
+            "Családi és baráti határok, érzelmi zsarolás",
+            "Pénzügyi segítségkérés és kodependencia csapdái"
+        ]
+    )
 
-# --- 4. MÓD: SAJÁT BESZÉLGETÉS ELEMZÉSE ---
-if scenario["persona_prompt"] is None:
+    if st.sidebar.button("✨ Új véletlen szituáció generálása", type="primary"):
+        if not api_key:
+            st.sidebar.error("Előbb add meg az API kulcsot!")
+        else:
+            with st.spinner("Új valós élethelyzet felépítése..."):
+                try:
+                    new_scen = generate_new_scenario(category, api_key, selected_model, available_models)
+                    st.session_state["dyn_scenario"] = new_scen
+                    st.session_state["rk_messages"] = [{"role": "assistant", "content": new_scen["opening_line"]}]
+                    st.session_state.pop("rk_eval", None)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Hiba a generáláskor: {e}")
+
+# --- 1. MÓD: DINAMIKUS SZIMULÁTOR ---
+if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
+    if not api_key:
+        st.warning("👈 Add meg a Google Gemini API kulcsodat az oldalsávon az indításhoz!")
+        st.stop()
+
+    if "dyn_scenario" not in st.session_state:
+        with st.spinner("Első élő szituáció generálása..."):
+            try:
+                new_scen = generate_new_scenario(category, api_key, selected_model, available_models)
+                st.session_state["dyn_scenario"] = new_scen
+                st.session_state["rk_messages"] = [{"role": "assistant", "content": new_scen["opening_line"]}]
+            except Exception as e:
+                st.error(f"Hiba: {e}")
+                st.stop()
+
+    scen = st.session_state["dyn_scenario"]
+
+    st.subheader(f"🎭 {scen['title']}")
+    st.info(f"**Helyzetkép:** {scen['context']}")
+    st.caption("⚠️ *A másik fél valódi szándékát nem ismered. Figyeld a jeleket, kérdezz okosan, és tartsd meg az egyensúlyt!*")
+
+    for msg in st.session_state["rk_messages"]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    if user_input := st.chat_input("Írd le, mit mondasz vagy hogyan reagálsz..."):
+        st.session_state["rk_messages"].append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+
+        history_text = "\n".join(
+            [f"{'Másik fél' if m['role']=='assistant' else 'Felhasználó'}: {m['content']}" for m in st.session_state["rk_messages"]]
+        )
+        roleplay_prompt = f"""
+        Szerepjátékot játszol. Maradj végig 100%-ban a karakteredben! Ne adj tanácsot, ne lépj ki a szerepből!
+        
+        HELYZET: {scen['context']}
+        KARAKTERED ÉS SZABÁLYAID: {scen['persona_prompt']}
+        REJTETT MOTIVÁCIÓD: {scen['hidden_motivation']}
+
+        EDDIGI BESZÉLGETÉS:
+        {history_text}
+
+        Reagálj természetesen, életszerűen (2-4 mondatban) a Felhasználó utolsó megszólalására a karaktered személyisége és rejtett motivációja alapján:
+        """
+
+        with st.chat_message("assistant"):
+            try:
+                stream_gen, _ = stream_gemini_fast(roleplay_prompt, api_key, selected_model, available_models, temp=0.7)
+                full_reply = st.write_stream(stream_gen)
+                st.session_state["rk_messages"].append({"role": "assistant", "content": full_reply})
+            except Exception as e:
+                st.error(f"Hiba a válaszadáskor: {e}")
+
+    if len(st.session_state["rk_messages"]) >= 3:
+        st.divider()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("⚖️ Beszélgetés lezárása és kiértékelése", type="primary"):
+                transcript = "\n".join(
+                    [f"{'Másik fél' if m['role']=='assistant' else 'Te'}: {m['content']}" for m in st.session_state["rk_messages"]]
+                )
+                eval_prompt = f"""
+                Értékeld a felhasználó ('Te') teljesítményét az alábbi szituációs gyakorlatban!
+                
+                HELYZET: {scen['context']}
+                A MÁSIK FÉL REJTETT MOTIVÁCIÓJA (amit a felhasználó nem tudott): {scen['hidden_motivation']}
+
+                BESZÉLGETÉS:
+                {transcript}
+
+                Add meg az értékelést az alábbi bontásban (tömören, őszintén, építően):
+                1. **A lepel lehull:** Hogyan reagált a felhasználó a másik fél rejtett motivációjára? Átlátott-e rajta, vagy csapdába esett?
+                2. **4 pilléres pontozás (1-10 skála + 1 mondat indoklás):**
+                   - Kegyelem & Emberi Méltóság
+                   - Igazság & Bibliai Hűség
+                   - Határhúzás & 'Kígyó-okosság'
+                   - Kommunikációs Bölcsesség
+                3. **Fejlesztési javaslat:** 2 konkrét mondat, amivel még bölcsebben kezelhette volna a helyzetet.
+                """
+                with st.spinner("Elemzés készül..."):
+                    stream_gen, _ = stream_gemini_fast(eval_prompt, api_key, selected_model, available_models, temp=0.3)
+                    st.session_state["rk_eval"] = "".join(list(stream_gen))
+
+        if "rk_eval" in st.session_state:
+            st.markdown("### 📊 Szimulációs Kiértékelés")
+            st.markdown(st.session_state["rk_eval"])
+            with st.expander("🔍 Eredeti karakterleírás és rejtett motiváció megtekintése"):
+                st.write(f"**Rejtett motiváció:** {scen['hidden_motivation']}")
+                st.write(f"**Karakterleírás:** {scen['persona_prompt']}")
+
+# --- 2. MÓD: SAJÁT BESZÉLGETÉS ELEMZÉSE ---
+else:
     st.subheader("📋 Valós beszélgetés kiértékelése")
-    st.info(scenario["context"])
+    st.info("Másold be egy megtörtént beszélgetésedet (pl. Messenger, e-mail, gyülekezeti vagy családi vita), és az AI elemzi a Kegyelem, Igazság, Határhúzás és Kodependencia szempontjából.")
     user_transcript = st.text_area("Másold be ide a beszélgetés szövegét:", height=220, placeholder="Én: ...\nMásik fél: ...")
 
     if st.button("⚖️ Kiértékelés a 4 pillér alapján", type="primary"):
@@ -127,83 +265,3 @@ if scenario["persona_prompt"] is None:
                 st.write_stream(stream_gen)
             except Exception as e:
                 st.error(f"Elemzési hiba: {e}")
-
-# --- 1-3. MÓD: INTERAKTÍV SZIMULÁTOR ---
-else:
-    st.info(f"**Helyzetkép:** {scenario['context']}")
-    st.caption("⚠️ *Megjegyzés: A másik fél rejtett motivációját nem ismered – pontosan úgy, mint a valóságban.*")
-
-    if "rk_messages" not in st.session_state or st.session_state.get("rk_current_scen") != selected_scenario_name:
-        st.session_state["rk_current_scen"] = selected_scenario_name
-        st.session_state["rk_messages"] = [{"role": "assistant", "content": scenario["opening_line"]}]
-        st.session_state.pop("rk_eval", None)
-
-    for msg in st.session_state["rk_messages"]:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-    user_input = st.chat_input("Írd be a válaszodat a szituációban...")
-
-    if user_input:
-        if not api_key:
-            st.error("Add meg a Gemini API kulcsot az oldalsávon!")
-        else:
-            st.session_state["rk_messages"].append({"role": "user", "content": user_input})
-            with st.chat_message("user"):
-                st.markdown(user_input)
-
-            history_str = "\n".join([f"{'Felhasználó' if m['role']=='user' else 'Karakter'}: {m['content']}" for m in st.session_state["rk_messages"]])
-            reply_prompt = f"""
-            Szerepjáték szimuláció. Maradj szigorúan a karakteredben!
-            Helyzet: {scenario['context']}
-            Karakter és rejtett motiváció: {scenario['persona_prompt']}
-
-            Eddigi párbeszéd:
-            {history_str}
-
-            Válaszolj 2-4 mondatban, teljesen életszerűen a karakter stílusában (ne térj meg varázsütésre, reagálj a felhasználó hangnemére és határozottságára):
-            """
-            with st.chat_message("assistant"):
-                try:
-                    stream_gen, _ = stream_gemini_fast(reply_prompt, api_key, selected_model, available_models, temp=0.6)
-                    ai_reply = st.write_stream(stream_gen)
-                    st.session_state["rk_messages"].append({"role": "assistant", "content": ai_reply})
-                except Exception as e:
-                    st.error(f"Hiba a válaszadásnál: {e}")
-
-    if len(st.session_state["rk_messages"]) >= 3:
-        st.divider()
-        if st.button("⚖️ Párbeszéd lezárása és kiértékelése (Kegyelem vs. Igazság vs. Határok)", type="primary"):
-            if not api_key:
-                st.error("Add meg a Gemini API kulcsot!")
-            else:
-                history_str = "\n".join([f"{'Keresztény' if m['role']=='user' else 'Beszélgetőpartner'}: {m['content']}" for m in st.session_state["rk_messages"]])
-                judge_prompt = f"""
-                Értékeld ki tömören, lényegretörően a 'Keresztény' szereplő kommunikációját az alábbi szimulációban!
-                A szituáció rejtett háttere (amit ő nem tudott előre): {scenario['persona_prompt']}
-
-                Értékeld 1-10 ponttal és 1-2 mondatos indoklással a 4 pillért:
-                1. **Kegyelem & Méltóság** (emberi tisztelet, nyitottság)
-                2. **Igazság & Bibliai Hűség** (nem adta-e fel a bibliai értékrendet)
-                3. **Határhúzás & 'Kígyó-okosság'** (átlátott-e a manipuláción, elkerülte-e a kodependens megmentő-szerepet)
-                4. **Alázat & Bölcsesség** (elfogadta-e, hogy nem lát a másik szívébe, kérdezett-e kioktatás helyett)
-
-                Fedd fel 2 mondatban a másik fél rejtett motivációját, és adj 2 konkrét mondatjavaslatot!
-
-                Párbeszéd:
-                {history_str}
-                """
-                try:
-                    st.subheader("📊 Kiértékelés: Kegyelem, Igazság & Emberi Határok")
-                    stream_gen, model_used = stream_gemini_fast(judge_prompt, api_key, selected_model, available_models, temp=0.3)
-                    st.caption(f"⚡ Villámelemzés ezzel a modellel: `{model_used}`")
-                    full_eval = st.write_stream(stream_gen)
-                    st.session_state["rk_eval"] = (full_eval, model_used)
-                except Exception as e:
-                    st.error(f"Kiértékelési hiba: {e}")
-
-    if "rk_eval" in st.session_state:
-        eval_res, model_used = st.session_state["rk_eval"]
-        st.subheader("📊 Kiértékelés: Kegyelem, Igazság & Emberi Határok")
-        st.caption(f"⚡ Bírói modell: `{model_used}`")
-        st.markdown(eval_res)

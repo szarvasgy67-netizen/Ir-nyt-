@@ -144,33 +144,77 @@ elif mode == "📋 Saját beszélgetés elemzése":
 
 else:
     st.subheader("🌱 Missziós Sáfárság-kalkulátor (1Kor 3,6–7)")
-    st.info("„Én ültettem, Apollós öntözött, de a növekedést Isten adta.” A **vetés minőségét, a jó sáfárságot és a potenciális érintéseket** mérjük.")
+    st.info("„Én ültettem, Apollós öntözött, de a növekedést Isten adta.” A **vetés minőségét, a jó sáfárságot és a terhek arányosságát** mérjük.")
+
+    preset = st.selectbox("⚡ Gyors sablon betöltése (vagy írd át szabadon):", [
+        "1. Egyéni magvetés (pl. Mai Ige + kis ajándék)",
+        "2. Nagy költségű 1 hetes tábor (pl. külföldi csapattal)",
+        "3. Helyi éves gyülekezeti / ifjúsági program"
+    ])
+
+    if "1." in preset:
+        d_name, d_cost, d_fund, d_reach, d_ext, d_hours, d_vol, d_weeks, d_paid, d_touch = (
+            "Negyedéves Mai Ige + kis ajándék", 93000, 0, 220, 95, 8, 1, 52, False, 0
+        )
+    elif "2." in preset:
+        d_name, d_cost, d_fund, d_reach, d_ext, d_hours, d_vol, d_weeks, d_paid, d_touch = (
+            "1 hetes angol tábor külföldi csapattal", 8000000, 2, 30, 15, 1000, 20, 1, True, 2
+        )
+    else:
+        d_name, d_cost, d_fund, d_reach, d_ext, d_hours, d_vol, d_weeks, d_paid, d_touch = (
+            "Helyi közösségi est / klub", 250000, 1, 80, 45, 200, 5, 40, False, 1
+        )
+
     c1, c2 = st.columns(2)
     with c1:
-        project_name = st.text_input("Projekt neve:", value="Negyedéves Mai Ige + kis ajándék")
-        direct_cost = st.number_input("Közvetlen költség / év (Ft):", min_value=0, value=93000, step=5000)
-        funding_source = st.selectbox("Finanszírozás:", ["Saját forrásból (önfinanszírozó)", "Átlátható gyülekezeti adomány", "Külső adományozók (nem látják a pontos célcsoportot)"])
-        total_reach = st.number_input("Összes elért háztartás / fő (évente):", min_value=1, value=220, step=10)
-        external_pct = st.slider("Valódi KÜLSŐS arány (%):", 0, 100, 95)
+        project_name = st.text_input("Projekt neve:", value=d_name)
+        direct_cost = st.number_input("Közvetlen költség / év (Ft):", min_value=0, value=d_cost, step=10000)
+        funding_source = st.selectbox("Finanszírozás:", [
+            "Saját forrásból (önfinanszírozó)",
+            "Átlátható gyülekezeti adomány",
+            "Külső adományozók (nem látják a pontos célcsoportot)"
+        ], index=d_fund)
+        total_reach = st.number_input("Összes elért háztartás / fő:", min_value=1, value=d_reach, step=10)
+        external_pct = st.slider("Valódi KÜLSŐS arány (%):", 0, 100, d_ext)
+
     with c2:
-        volunteer_hours = st.number_input("Saját + önkéntes munkaórák / év:", min_value=1, value=8, step=5)
-        paid_staff_involved = st.checkbox("Fizetett alkalmazott dolgoztat ingyen önkénteseket a saját KPI-jához?", value=False)
-        burnout_risk = st.select_slider("Terhelés / kiégési kockázat:", options=["Alacsony", "Közepes", "Magas"], value="Alacsony")
-        touch_quality = st.selectbox("Érintés minősége:", ["Kis ajándék + tartalmas üzenet (2.5x)", "Személyes meghívás / beszélgetés (3.5x)", "Egyszerű szórólap / rendezvény (1.0x)"])
+        volunteer_hours = st.number_input("Összes önkéntes munkaóra:", min_value=1, value=d_hours, step=10)
+        col_sub1, col_sub2 = st.columns(2)
+        volunteers_count = col_sub1.number_input("Önkéntesek száma (fő):", min_value=1, value=d_vol, step=1)
+        duration_weeks = col_sub2.number_input("Időtartam (hét):", min_value=1, value=d_weeks, step=1)
+        
+        hrs_per_person_week = volunteer_hours / (volunteers_count * duration_weeks)
+        auto_burnout = "Alacsony" if hrs_per_person_week < 5 else ("Közepes" if hrs_per_person_week <= 20 else "Magas")
+        
+        burnout_risk = st.select_slider(
+            f"Terhelés ({hrs_per_person_week:.1f} óra/fő/hét → ajánlott: {auto_burnout}):",
+            options=["Alacsony", "Közepes", "Magas"],
+            value=auto_burnout
+        )
+        paid_staff_involved = st.checkbox("Fizetett alkalmazott dolgoztat ingyen önkénteseket a saját KPI-jához?", value=d_paid)
+        touch_quality = st.selectbox("Érintés minősége:", [
+            "Kis ajándék + tartalmas üzenet (2.5x)",
+            "Személyes meghívás / beszélgetés (3.5x)",
+            "Egyszerű szórólap / rendezvény (1.0x)"
+        ], index=d_touch)
 
     ext_reach = max(1, round(total_reach * (external_pct / 100)))
     hidden_labor = volunteer_hours * 2500
     true_cost = direct_cost + hidden_labor
+    true_unit_cost = true_cost / ext_reach
     mult = 2.5 if "2.5x" in touch_quality else (3.5 if "3.5x" in touch_quality else 1.0)
     touches = min(ext_reach, round(ext_reach * 0.12 * mult))
 
     score = 10.0
     if "Külső" in funding_source and external_pct < 50: score -= 3.0
+    elif "Külső" in funding_source: score -= 1.0
     elif "Átlátható" in funding_source: score -= 0.5
     if paid_staff_involved: score -= 2.5
     if burnout_risk == "Közepes": score -= 1.0
     elif burnout_risk == "Magas": score -= 2.5
     if external_pct < 30: score -= 2.0
+    if true_unit_cost > 100000: score -= 2.5
+    elif true_unit_cost > 25000: score -= 1.0
     score = max(1.0, round(score, 1))
 
     st.divider()
@@ -179,9 +223,9 @@ else:
     m2.metric("Külsős elérés", f"{ext_reach} fő / ház")
     m3.metric("Költség / külsős", f"{direct_cost / ext_reach:,.0f} Ft".replace(",", " "))
     m4.metric("Érdemi érintés (potenciál)", f"~{touches} fő / év")
-    st.caption(f"💡 Rejtett munkaérték: **{hidden_labor:,.0f} Ft** | Valódi összköltség: **{true_cost:,.0f} Ft** ({true_cost / ext_reach:,.0f} Ft / külsős).".replace(",", " "))
+    st.caption(f"💡 Terhelés: **{hrs_per_person_week:.1f} óra / fő / hét** | Rejtett munkaérték: **{hidden_labor:,.0f} Ft** | Valódi összköltség: **{true_cost:,.0f} Ft** ({true_unit_cost:,.0f} Ft / külsős).".replace(",", " "))
 
     if st.button("🧠 Bereai AI-vélemény kérése", type="primary") and api_key:
-        sp = f"Értékeld 4-5 mondatban a Bereai józanság és 1Kor 3,6-7 alapján: {project_name}, pontszám: {score}/10, költség: {direct_cost} Ft, rejtett munka: {hidden_labor} Ft, finanszírozás: {funding_source}, külsős elérés: {ext_reach} ({external_pct}%), potenciális érintés: ~{touches}, fizetett szervező ingyen önkéntesekkel: {paid_staff_involved}, terhelés: {burnout_risk}."
+        sp = f"Értékeld 4-5 mondatban a Bereai józanság és 1Kor 3,6-7 alapján: {project_name}, pontszám: {score}/10, költség: {direct_cost} Ft, rejtett munka: {hidden_labor} Ft ({hrs_per_person_week:.1f} óra/fő/hét terhelés), finanszírozás: {funding_source}, külsős elérés: {ext_reach} ({external_pct}%), potenciális érintés: ~{touches}, fizetett szervező ingyen önkéntesekkel: {paid_staff_involved}."
         stream_gen, _ = stream_gemini_fast(sp, api_key, selected_model, available_models, temp=0.3)
         st.write_stream(stream_gen)

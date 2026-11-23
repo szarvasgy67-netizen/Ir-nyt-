@@ -236,6 +236,18 @@ else:
     st.caption(f"💡 Valódi összköltség: **{true_cost:,.0f} Ft** ({true_unit_cost:,.0f} Ft / külsős) | Rejtett munkaérték: **{hidden_labor:,.0f} Ft** ({hrs_per_person_week:.1f} óra/fő/hét).".replace(",", " "))
 
     if st.button("🧠 Bereai AI-vélemény kérése", type="primary") and api_key:
-        sp = f"Értékeld 4-5 mondatban a Bereai józanság és 1Kor 3,6-7 alapján ('a megtérést Isten adja, mi a vetést vizsgáljuk'): {project_name}, pontszám: {score}/10, valódi összköltség: {true_cost} Ft ({true_unit_cost:.0f} Ft/külsős), jóindulat-nyitás: ~{goodwill_touches} fő, érdemi magvetés: ~{meaningful_seeds} fő, közösségi kapcsolódási potenciál: ~{community_potential} fő/év, utánkövetés: {'van' if has_followup else 'nincs'}, fizetett szervező ingyen önkéntesekkel: {paid_staff_involved}."
+        sp = f"""
+        Értékeld 4-5 mondatban a Bereai józanság és az 1Kor 3,6-7 ('Én ültettem, Apollós öntözött, de a növekedést Isten adta') alapján ezt a szolgálatot!
+        SZIGORÚ TEOLÓGIAI SZABÁLY: A növekedés és a megtérés EGYEDÜL Isten felelőssége, SOHA nem az emberé! Ne kérj számon 'lelki termést' vagy 'növekedésért való felelősségvállalást' a vetőn! Kizárólag azt vizsgáld, hogy a VETÉS (a sáfárság, az őszinteség, a terhek arányossága és a személyes figyelmesség) mennyire tiszta, józan és fenntartható.
+
+        Adatok:
+        - Projekt: {project_name}
+        - Sáfársági korrektség: {score}/10
+        - Valódi összköltség: {true_cost} Ft ({true_unit_cost:.0f} Ft / külsős háztartás)
+        - Finanszírozás: {funding_source}
+        - Jóindulat-nyitás: ~{goodwill_touches} fő, érdemi magvetés: ~{meaningful_seeds} fő, kapcsolódási potenciál: ~{community_potential} fő/év
+        - Terhelés: {hrs_per_person_week:.1f} óra/fő/hét ({burnout_risk})
+        - Fizetett szervező ingyen önkéntesekkel: {'Igen' if paid_staff_involved else 'Nem'}
+        """
         stream_gen, _ = stream_gemini_fast(sp, api_key, selected_model, available_models, temp=0.3)
         st.write_stream(stream_gen)

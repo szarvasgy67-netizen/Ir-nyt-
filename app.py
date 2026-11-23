@@ -152,7 +152,7 @@ else:
     st.info("„Én ültettem, Apollós öntözött, de a növekedést Isten adta.” A megtérést csak Isten tudja mérni – mi a **vetés minőségét, a terhek arányosságát és az érintési mélységet** vizsgáljuk.")
 
     PRESETS = {
-        "1. Egyéni magvetés (Mai Ige + ajándék)": ("Negyedéves Mai Ige + kis ajándék", 93000, 0, 220, 95, 8, 1, 52, False, 1, True),
+        "1. Egyéni magvetés (Mai Ige + ajándék)": ("Negyedéves Mai Ige + kis ajándék", 93000, 0, 220, 95, 8, 1, 52, False, 1, False),
         "2. Nagy költségű 1 hetes tábor": ("1 hetes angol tábor külföldi csapattal", 8000000, 2, 30, 15, 1000, 20, 1, True, 0, False),
         "3. Cipősdoboz / egyszeri ajándékakció": ("Gyülekezeti Cipősdoboz-osztás", 450000, 1, 150, 90, 120, 10, 2, False, 0, False),
     }
@@ -235,19 +235,20 @@ else:
     m4.metric("3. Kapcsolódási potenciál", f"~{community_potential} fő / év")
     st.caption(f"💡 Valódi összköltség: **{true_cost:,.0f} Ft** ({true_unit_cost:,.0f} Ft / külsős) | Rejtett munkaérték: **{hidden_labor:,.0f} Ft** ({hrs_per_person_week:.1f} óra/fő/hét).".replace(",", " "))
 
-    if st.button("🧠 Bereai AI-vélemény kérése", type="primary") and api_key:
+    if st.button("🧠 Bereai AI-vélemény & Átkeretezés-elemzés", type="primary") and api_key:
         sp = f"""
-        Értékeld 4-5 mondatban a Bereai józanság és az 1Kor 3,6-7 ('Én ültettem, Apollós öntözött, de a növekedést Isten adta') alapján ezt a szolgálatot!
-        SZIGORÚ TEOLÓGIAI SZABÁLY: A növekedés és a megtérés EGYEDÜL Isten felelőssége, SOHA nem az emberé! Ne kérj számon 'lelki termést' vagy 'növekedésért való felelősségvállalást' a vetőn! Kizárólag azt vizsgáld, hogy a VETÉS (a sáfárság, az őszinteség, a terhek arányossága és a személyes figyelmesség) mennyire tiszta, józan és fenntartható.
+        Elemezd a Bereai józanság és az 1Kor 3,6-7 ('Én ültettem, Apollós öntözött, de a növekedést Isten adta') alapján ezt a szolgálatot!
+        SZIGORÚ TEOLÓGIAI SZABÁLY: A növekedés és a megtérés EGYEDÜL Isten felelőssége, SOHA nem az emberé! Ne kérj számon 'lelki termést' a vetőn.
 
         Adatok:
-        - Projekt: {project_name}
-        - Sáfársági korrektség: {score}/10
-        - Valódi összköltség: {true_cost} Ft ({true_unit_cost:.0f} Ft / külsős háztartás)
-        - Finanszírozás: {funding_source}
+        - Projekt: {project_name} | Sáfársági korrektség: {score}/10
+        - Valódi összköltség: {true_cost} Ft ({true_unit_cost:.0f} Ft / külsős) | Finanszírozás: {funding_source}
         - Jóindulat-nyitás: ~{goodwill_touches} fő, érdemi magvetés: ~{meaningful_seeds} fő, kapcsolódási potenciál: ~{community_potential} fő/év
-        - Terhelés: {hrs_per_person_week:.1f} óra/fő/hét ({burnout_risk})
-        - Fizetett szervező ingyen önkéntesekkel: {'Igen' if paid_staff_involved else 'Nem'}
+        - Terhelés: {hrs_per_person_week:.1f} óra/fő/hét ({burnout_risk}) | Fizetett szervező dolgoztat ingyen önkénteseket?: {'Igen' if paid_staff_involved else 'Nem'}
+
+        Add meg a választ pontosan ebben a két rövid blokkban:
+        1. **🔍 Átkeretezés-detektor (Mi ez valójában a 'misszió' címke mögött?):** Nevezd meg őszintén, ha a számok és a terhek alapján ez valójában *vallási turizmus*, *fizetett munkaköri KPI-gyártás mások ingyenmunkájából*, *olcsó gyülekezeti gyerekfelügyelet*, *önigazolási projekt*, vagy valóban *tiszta, sallangmentes egyéni magvetés*!
+        2. **⚖️ Bereai sáfársági mérleg (3-4 mondat):** Értékeld a vetés tisztaságát, a terhek igazságosságát és az átláthatóságot mindenféle vallásos maszlag nélkül!
         """
         stream_gen, _ = stream_gemini_fast(sp, api_key, selected_model, available_models, temp=0.3)
         st.write_stream(stream_gen)

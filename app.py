@@ -41,7 +41,6 @@ available_models = [
     "gemini-4-hydrogen"
 ]
 
-
 selected_model = st.sidebar.selectbox("🤖 Gemini Modell:", available_models, index=0)
 
 @st.cache_resource
@@ -126,32 +125,6 @@ MI A BEREAI GYÜLEKEZETI MINTA ALAPELVE (ApCsel 17:11)?
 3. **Kedves, de kőkemény határhúzás:** Kerüli a mézesmázos képmutatást és alakoskodást. Nem személyeskedik, de szelíd, egyenes, megalkuvás nélküli határokat húz ('igen-igen, nem-nem').
 """
 
-def run_evaluation(scen, messages, key, pref_model, fallbacks):
-    transcript = "\n".join(
-        [f"{'Másik fél' if m['role']=='assistant' else 'Te'}: {m['content']}" for m in messages]
-    )
-    eval_prompt = f"""
-    Értékeld a felhasználó ('Te') teljesítményét az alábbi szituációs gyakorlatban a **BEREAI GYÜLEKEZETI MINTA** alapján!
-    {BEREA_EVAL_CRITERIA}
-
-    HELYZET: {scen['context']}
-    A MÁSIK FÉL REJTETT MOTIVÁCIÓJA (amit a felhasználó nem tudott): {scen['hidden_motivation']}
-
-    BESZÉLGETÉS:
-    {transcript}
-
-    Add meg az értékelést az alábbi bontásban (tömören, őszintén, mindenféle vallásos maszlag és alakoskodás nélkül):
-    1. **Bereai mérleg (A lepel lehull):** Mennyire sikerült egyszerre nyitottnak maradni, ugyanakkor józanul megvizsgálni a másik fél szándékát és átlátni a manipuláción?
-    2. **4 bereai pillér pontozása (1-10 skála + 1 mondat indoklás):**
-       - **Nyitott & Tiszteletteljes Meghallgatás** (ítélkezésmentes, emberi odafordulás)
-       - **Józan Vizsgálat & Kritikai Tisztánlátás** (nem dől be érzelmi/lelki nyomásnak, tényeket és bibliai alapot kér)
-       - **Kedves, de Kemény Határhúzás** (határozott, megalkuvás nélküli kiállás személyeskedés nélkül)
-       - **Álarc nélküli Őszinteség** (képmutatás-mentes, egyenes beszéd a művi udvariaskodás helyett)
-    3. **Bereai válasz-alternatíva:** 2 konkrét, természetes, egyenes magyar mondat (TILOS a kenetteljes zsargon!), amivel még higgadtabban és szilárdabban lehetett volna meghúzni a határt.
-    """
-    stream_gen, _ = stream_gemini_fast(eval_prompt, key, pref_model, fallbacks, temp=0.3)
-    return "".join(list(stream_gen))
-
 # --- OLDALSÁV: MÓDVÁLASZTÁS ÉS VEZÉRLŐGOMBOK ---
 st.sidebar.divider()
 mode = st.sidebar.radio(
@@ -181,24 +154,14 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
                     st.session_state["dyn_scenario"] = new_scen
                     st.session_state["rk_messages"] = [{"role": "assistant", "content": new_scen["opening_line"]}]
                     st.session_state.pop("rk_eval", None)
+                    st.session_state.pop("trigger_eval", None)
                     st.rerun()
                 except Exception as e:
                     st.error(f"Hiba a generáláskor: {e}")
 
     if len(st.session_state.get("rk_messages", [])) >= 2 and "dyn_scenario" in st.session_state:
         if st.sidebar.button("⚖️ Beszélgetés kiértékelése MOST"):
-            with st.spinner("Bereai elemzés készül..."):
-                try:
-                    st.session_state["rk_eval"] = run_evaluation(
-                        st.session_state["dyn_scenario"],
-                        st.session_state["rk_messages"],
-                        api_key,
-                        selected_model,
-                        available_models
-                    )
-                    st.rerun()
-                except Exception as e:
-                    st.sidebar.error(f"Hiba az értékeléskor: {e}")
+            st.session_state["trigger_eval"] = True
 
 # --- 1. MÓD: DINAMIKUS SZIMULÁTOR ---
 if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
@@ -226,10 +189,46 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    if "rk_eval" in st.session_state:
+    # Élő streamelt kiértékelés megjelenítése
+    if st.session_state.get("trigger_eval"):
+        st.divider()
+        st.markdown("### 📊 Bereai Kiértékelés")
+        transcript = "\n".join(
+            [f"{'Másik fél' if m['role']=='assistant' else 'Te'}: {m['content']}" for m in st.session_state["rk_messages"]]
+        )
+        eval_prompt = f"""
+        Értékeld a felhasználó ('Te') teljesítményét az alábbi szituációs gyakorlatban a **BEREAI GYÜLEKEZETI MINTA** alapján!
+        {BEREA_EVAL_CRITERIA}
+
+        HELYZET: {scen['context']}
+        A MÁSIK FÉL REJTETT MOTIVÁCIÓJA (amit a felhasználó nem tudott): {scen['hidden_motivation']}
+
+        BESZÉLGETÉS:
+        {transcript}
+
+        Add meg az értékelést az alábbi bontásban (tömören, őszintén, mindenféle vallásos maszlag és alakoskodás nélkül):
+        1. **Bereai mérleg (A lepel lehull):** Mennyire sikerült egyszerre nyitottnak maradni, ugyanakkor józanul megvizsgálni a másik fél szándékát és átlátni a manipuláción?
+        2. **4 bereai pillér pontozása (1-10 skála + 1 mondat indoklás):**
+           - **Nyitott & Tiszteletteljes Meghallgatás** (ítélkezésmentes, emberi odafordulás)
+           - **Józan Vizsgálat & Kritikai Tisztánlátás** (nem dől be érzelmi/lelki nyomásnak, tényeket és bibliai alapot kér)
+           - **Kedves, de Kemény Határhúzás** (határozott, megalkuvás nélküli kiállás személyeskedés nélkül)
+           - **Álarc nélküli Őszinteség** (képmutatás-mentes, egyenes beszéd a művi udvariaskodás helyett)
+        3. **Bereai válasz-alternatíva:** 2 konkrét, természetes, egyenes magyar mondat (TILOS a kenetteljes zsargon!), amivel még higgadtabban és szilárdabban lehetett volna meghúzni a határt.
+        """
+        try:
+            stream_gen, _ = stream_gemini_fast(eval_prompt, api_key, selected_model, available_models, temp=0.3)
+            st.session_state["rk_eval"] = st.write_stream(stream_gen)
+            st.session_state["trigger_eval"] = False
+        except Exception as e:
+            st.error(f"Hiba az értékeléskor: {e}")
+            st.session_state["trigger_eval"] = False
+
+    elif "rk_eval" in st.session_state:
         st.divider()
         st.markdown("### 📊 Bereai Kiértékelés")
         st.markdown(st.session_state["rk_eval"])
+
+    if "rk_eval" in st.session_state:
         with st.expander("🔍 Eredeti karakterleírás és rejtett motiváció megtekintése"):
             st.write(f"**Rejtett motiváció:** {scen['hidden_motivation']}")
             st.write(f"**Karakterleírás:** {scen['persona_prompt']}")

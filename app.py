@@ -157,16 +157,20 @@ else:
         "3. Cipősdoboz / egyszeri ajándékakció": ("Gyülekezeti Cipősdoboz-osztás", 450000, 1, 150, 90, 120, 10, 2, False, 0, False),
     }
 
-    def apply_preset():
-        vals = PRESETS[st.session_state["calc_preset"]]
+        def apply_preset():
+        preset_key = st.session_state.get("calc_preset")
+        if preset_key not in PRESETS:
+            preset_key = next(iter(PRESETS))
+            st.session_state["calc_preset"] = preset_key
+        vals = PRESETS[preset_key]
         (st.session_state["c_name"], st.session_state["c_cost"], st.session_state["c_fund"],
          st.session_state["c_reach"], st.session_state["c_ext"], st.session_state["c_hours"],
          st.session_state["c_vol"], st.session_state["c_weeks"], st.session_state["c_paid"],
          st.session_state["c_touch"], st.session_state["c_follow"]) = vals
 
-    if "c_name" not in st.session_state:
-        st.session_state["calc_preset"] = next(iter(PRESETS))
+    if "c_name" not in st.session_state or st.session_state.get("calc_preset") not in PRESETS:
         apply_preset()
+
 
     st.radio("⚡ Sablon választása (alatta bármit szabadon átírhatsz):", list(PRESETS.keys()), key="calc_preset", on_change=apply_preset, horizontal=True)
 

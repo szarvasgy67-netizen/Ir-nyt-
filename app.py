@@ -152,42 +152,40 @@ else:
     st.subheader("🌱 Missziós Sáfárság-kalkulátor (1Kor 3,6–7)")
     st.info("„Én ültettem, Apollós öntözött, de a növekedést Isten adta.” A **vetés minőségét, a jó sáfárságot és a terhek arányosságát** mérjük.")
 
-    preset = st.selectbox("⚡ Gyors sablon betöltése (vagy írd át szabadon):", [
-        "1. Egyéni magvetés (pl. Mai Ige + kis ajándék)",
-        "2. Nagy költségű 1 hetes tábor (pl. külföldi csapattal)",
-        "3. Helyi éves gyülekezeti / ifjúsági program"
-    ])
+    PRESETS = {
+        "1. Egyéni magvetés (pl. Mai Ige + kis ajándék)": ("Negyedéves Mai Ige + kis ajándék", 93000, 0, 220, 95, 8, 1, 52, False, 0),
+        "2. Nagy költségű 1 hetes tábor (pl. külföldi csapattal)": ("1 hetes angol tábor külföldi csapattal", 8000000, 2, 30, 15, 1000, 20, 1, True, 2),
+        "3. Helyi éves gyülekezeti / ifjúsági program": ("Helyi közösségi est / klub", 250000, 1, 80, 45, 200, 5, 40, False, 1),
+    }
 
-    if "1." in preset:
-        d_name, d_cost, d_fund, d_reach, d_ext, d_hours, d_vol, d_weeks, d_paid, d_touch = (
-            "Negyedéves Mai Ige + kis ajándék", 93000, 0, 220, 95, 8, 1, 52, False, 0
-        )
-    elif "2." in preset:
-        d_name, d_cost, d_fund, d_reach, d_ext, d_hours, d_vol, d_weeks, d_paid, d_touch = (
-            "1 hetes angol tábor külföldi csapattal", 8000000, 2, 30, 15, 1000, 20, 1, True, 2
-        )
-    else:
-        d_name, d_cost, d_fund, d_reach, d_ext, d_hours, d_vol, d_weeks, d_paid, d_touch = (
-            "Helyi közösségi est / klub", 250000, 1, 80, 45, 200, 5, 40, False, 1
-        )
+    def apply_preset():
+        vals = PRESETS[st.session_state["calc_preset"]]
+        st.session_state["c_name"], st.session_state["c_cost"], st.session_state["c_fund"], st.session_state["c_reach"], st.session_state["c_ext"], st.session_state["c_hours"], st.session_state["c_vol"], st.session_state["c_weeks"], st.session_state["c_paid"], st.session_state["c_touch"] = vals
+
+    if "c_name" not in st.session_state:
+        st.session_state["calc_preset"] = list(PRESETS.keys())[0]
+        apply_preset()
+
+    st.selectbox("⚡ Gyors sablon betöltése (utána szabadon átírhatsz bármit):", list(PRESETS.keys()), key="calc_preset", on_change=apply_preset)
 
     c1, c2 = st.columns(2)
     with c1:
-        project_name = st.text_input("Projekt neve:", value=d_name)
-        direct_cost = st.number_input("Közvetlen költség / év (Ft):", min_value=0, value=d_cost, step=10000)
-        funding_source = st.selectbox("Finanszírozás:", [
+        project_name = st.text_input("Projekt neve:", key="c_name")
+        direct_cost = st.number_input("Közvetlen költség / év (Ft):", min_value=0, step=10000, key="c_cost")
+        funding_options = [
             "Saját forrásból (önfinanszírozó)",
             "Átlátható gyülekezeti adomány",
             "Külső adományozók (nem látják a pontos célcsoportot)"
-        ], index=d_fund)
-        total_reach = st.number_input("Összes elért háztartás / fő:", min_value=1, value=d_reach, step=10)
-        external_pct = st.slider("Valódi KÜLSŐS arány (%):", 0, 100, d_ext)
+        ]
+        funding_source = funding_options[st.selectbox("Finanszírozás:", range(3), format_func=lambda i: funding_options[i], key="c_fund")]
+        total_reach = st.number_input("Összes elért háztartás / fő:", min_value=1, step=10, key="c_reach")
+        external_pct = st.slider("Valódi KÜLSŐS arány (%):", 0, 100, key="c_ext")
 
     with c2:
-        volunteer_hours = st.number_input("Összes önkéntes munkaóra:", min_value=1, value=d_hours, step=10)
+        volunteer_hours = st.number_input("Összes önkéntes munkaóra:", min_value=1, step=10, key="c_hours")
         col_sub1, col_sub2 = st.columns(2)
-        volunteers_count = col_sub1.number_input("Önkéntesek száma (fő):", min_value=1, value=d_vol, step=1)
-        duration_weeks = col_sub2.number_input("Időtartam (hét):", min_value=1, value=d_weeks, step=1)
+        volunteers_count = col_sub1.number_input("Önkéntesek száma (fő):", min_value=1, step=1, key="c_vol")
+        duration_weeks = col_sub2.number_input("Időtartam (hét):", min_value=1, step=1, key="c_weeks")
         
         hrs_per_person_week = volunteer_hours / (volunteers_count * duration_weeks)
         auto_burnout = "Alacsony" if hrs_per_person_week < 5 else ("Közepes" if hrs_per_person_week <= 20 else "Magas")
@@ -197,12 +195,13 @@ else:
             options=["Alacsony", "Közepes", "Magas"],
             value=auto_burnout
         )
-        paid_staff_involved = st.checkbox("Fizetett alkalmazott dolgoztat ingyen önkénteseket a saját KPI-jához?", value=d_paid)
-        touch_quality = st.selectbox("Érintés minősége:", [
+        paid_staff_involved = st.checkbox("Fizetett alkalmazott dolgoztat ingyen önkénteseket a saját KPI-jához?", key="c_paid")
+        touch_options = [
             "Kis ajándék + tartalmas üzenet (2.5x)",
             "Személyes meghívás / beszélgetés (3.5x)",
             "Egyszerű szórólap / rendezvény (1.0x)"
-        ], index=d_touch)
+        ]
+        touch_quality = touch_options[st.selectbox("Érintés minősége:", range(3), format_func=lambda i: touch_options[i], key="c_touch")]
 
     ext_reach = max(1, round(total_reach * (external_pct / 100)))
     hidden_labor = volunteer_hours * 2500

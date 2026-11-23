@@ -87,26 +87,47 @@ def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.5):
 
 def generate_new_scenario(category, key, preferred_model, fallback_models):
     seed = random.randint(1000, 99999)
+    # A leggyorsabb lite modellel indítunk a villámgyors generálásért
+    models_to_try = ["gemini-3.5-flash-lite", preferred_model] + [
+        m for m in fallback_models if m not in ("gemini-3.5-flash-lite", preferred_model)
+    ]
+    
+    cfg = types.GenerateContentConfig(
+        temperature=0.95,
+        thinking_config=types.ThinkingConfig(thinking_level="minimal")
+    )
+    
     gen_prompt = f"""
-    Készíts egy életszerű, feszült, valós emberi szituációt (véletlen mag: {seed}), amely próbára teszi a keresztény kommunikációt: 
-    a Kegyelem (befogadás, szelídség), az Igazság (bibliai hűség megalkuvás nélkül) és a Józan Határhúzás ('kígyó-okosság', manipuláció felismerése) egyensúlyát.
-
-    Választott témakör: {category}
-
-    Fontos szabályok:
-    - Kerüld a sablonos, mesterkélt kliséket! Legyen hús-vér, hétköznapi magyar kontextus (pl. munkahelyi ebédszünet, családi vacsora, gyülekezeti kávézás, szomszédi vita, baráti üzenetváltás, pénzkérés, pletyka, világnézeti számonkérés, lelki zsarolás).
-    - A másik fél lehet őszinte kereső, sebzett szkeptikus, passzív-agresszív rokon, rejtett manipulátor vagy őszintén kíváncsi vitapartner – de ez ne legyen azonnal egyértelmű!
-
-    Válaszolj KIZÁRÓLAG az alábbi JSON struktúrában:
-    {{
-        "title": "Rövid, figyelemfelkeltő cím",
-        "context": "2-3 mondatos helyzetleírás (hol vagyunk, ki a másik fél, mi az előzmény).",
-        "persona_prompt": "Részletes szerepinstrukció az AI-nak: ki vagy, hogyan beszélsz, hogyan reagálsz, ha prédikálnak neked, ha megalkuszol, vagy ha határokat húznak.",
-        "hidden_motivation": "1-2 mondatos összefoglaló arról, mi a másik fél valódi, rejtett szándéka vagy lelki háttere.",
-        "opening_line": "A másik fél első, életszerű nyitómondata, amivel megszólít téged."
-    }}
+    Készíts egy életszerű, feszült, valós magyar élethelyzetet (mag: {seed}) a keresztény kommunikáció (Kegyelem, Igazság, Határhúzás) tesztelésére.
+    Témakör: {category}.
+    
+    Válaszolj PONTOSAN ebben az 5 soros formátumban, '|||' jellel elválasztva (ne írj elé és mögé semmi mást):
+    CÍM ||| HELYZETKÉP (2 mondat) ||| SZEREPINSTRUKCIÓ AZ AI-NAK ||| REJTETT MOTIVÁCIÓ (1 mondat) ||| NYITÓMONDAT
     """
-    return call_gemini_json(gen_prompt, key, preferred_model, fallback_models)
+    
+    client = get_gemini_client(key)
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=gen_prompt,
+                config=cfg
+            )
+            parts = [p.strip() for p in response.text.split("|||")]
+            if len(parts) >= 5:
+                return {
+                    "title": parts[0],
+                    "context": parts[1],
+                    "persona_prompt": parts[2],
+                    "hidden_motivation": parts[3],
+                    "opening_line": parts[4]
+                }
+        except Exception as e:
+            last_error = e
+            continue
+    raise RuntimeError(f"Nem sikerült generálni: {last_error}")
+
 # --- OLDALSÁV: MÓDVÁLASZTÁS ---
 st.sidebar.divider()
 mode = st.sidebar.radio(

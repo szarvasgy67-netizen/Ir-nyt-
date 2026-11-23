@@ -1,11 +1,10 @@
 import streamlit as st
-import json
 from google import genai
 from google.genai import types
 
-st.set_page_config(page_title="Radikális Kereszténység & Határhúzás Szimulátor", layout="wide")
-st.title("✝️ Radikális Kereszténység: Kegyelem, Igazság & Határhúzás")
-st.caption("Interaktív szituációs szimulátor és kommunikációs elemző – ahol nem látunk a másik szívébe, ezért a szeretet mellé józan határok is kellenek.")
+st.set_page_config(page_title="Kegyelem & Igazság – Kommunikációs és Határhúzó Szimulátor", layout="wide")
+st.title("🧭 Kegyelem & Igazság – Kommunikációs és Határhúzó Szimulátor")
+st.caption("Interaktív szituációs gyakorlótér és elemző: nyitott befogadás, bibliai iránytű és józan pszichológiai határok.")
 
 # --- OLDALSÁV: API KULCS ÉS MODELL ---
 st.sidebar.header("🔑 AI Settings")
@@ -79,7 +78,6 @@ if st.sidebar.button("🔄 Beszélgetés újrakezdése"):
     st.session_state.pop("rk_messages", None)
     st.session_state.pop("rk_eval", None)
     st.rerun()
-
 # --- 4. MÓD: SAJÁT BESZÉLGETÉS ELEMZÉSE ---
 if scenario["persona_prompt"] is None:
     st.subheader("📋 Valós beszélgetés kiértékelése")
@@ -94,7 +92,7 @@ if scenario["persona_prompt"] is None:
         else:
             with st.spinner("Mélyelemzés folyamatban..."):
                 eval_prompt = f"""
-                Elemezd az alábbi beszélgetést a 'Radikális Kereszténység (Kegyelem, Igazság, Emberi Határhúzás)' modell alapján!
+                Elemezd az alábbi beszélgetést a 'Kegyelem & Igazság – Emberi Határhúzás' modell alapján!
                 Ne feledd: az ember nem lát a másik szívébe, ezért a szeretet mellé józan határok és pszichológiai tisztánlátás is kell.
 
                 Értékeld 1-10 skálán és röviden indokold ezt a 4 tengelyt:
@@ -162,3 +160,25 @@ else:
                 with st.spinner("A párbeszéd teológiai és pszichológiai kiértékelése..."):
                     history_str = "\n".join([f"{'Keresztény' if m['role']=='user' else 'Beszélgetőpartner'}: {m['content']}" for m in st.session_state["rk_messages"]])
                     judge_prompt = f"""
+                    Értékeld ki a 'Keresztény' szereplő kommunikációját az alábbi szimulációban!
+                    A szituáció rejtett háttere (amit ő nem tudott előre): {scenario['persona_prompt']}
+
+                    Értékeld 1-10 ponttal a 4 pillért:
+                    1. **Kegyelem & Méltóság** (emberi tisztelet, nyitottság)
+                    2. **Igazság & Bibliai Hűség** (nem adta-e fel a bibliai értékrendet)
+                    3. **Határhúzás & 'Kígyó-okosság'** (átlátott-e a manipuláción, elkerülte-e a kodependens megmentő-szerepet)
+                    4. **Alázat & Bölcsesség** (elfogadta-e, hogy nem lát a másik szívébe, kérdezett-e kioktatás helyett)
+
+                    Fedd fel a végén a másik fél rejtett motivációját, és mutasd meg, hol reagált jól a felhasználó, és hol lehetett volna még bölcsebb!
+
+                    Párbeszéd:
+                    {history_str}
+                    """
+                    eval_res, model_used = call_gemini_with_fallback(judge_prompt, api_key, selected_model, available_models, temp=0.3)
+                    st.session_state["rk_eval"] = (eval_res, model_used)
+
+    if "rk_eval" in st.session_state:
+        eval_res, model_used = st.session_state["rk_eval"]
+        st.subheader("📊 Kiértékelés: Kegyelem, Igazság & Emberi Határok")
+        st.caption(f"⚡ Bírói modell: `{model_used}`")
+        st.markdown(eval_res)

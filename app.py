@@ -27,8 +27,6 @@ st.markdown("""
 # ----------------------------------------------
 
 st.title("🧭 Kegyelem & Igazság – Dinamikus Szituációs Szimulátor")
-
-st.title("🧭 Kegyelem & Igazság – Dinamikus Szituációs Szimulátor")
 st.caption("Minden körben új, valós élethelyzeteken alapuló próbatétel: nyitott befogadás, bibliai iránytű és józan határok.")
 
 # --- OLDALSÁV: API KULCS ÉS MODELL ---

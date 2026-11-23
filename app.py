@@ -36,15 +36,21 @@ def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.5):
             try:
                 it = iter(client.models.generate_content_stream(model=model_name, contents=prompt, config=cfg))
                 first = next(it)
-                def gen(f=first, i=it):
-                    if f and f.text: yield f.text
-                    for c in i:
-                        if c.text: yield c.text
+                def gen(f=first, i=it, m=model_name):
+                    try:
+                        if f and f.text:
+                            yield f.text
+                        for c in i:
+                            if c.text:
+                                yield c.text
+                    except Exception:
+                        yield f"\n\n⚠️ *(A szerver túlterheltsége miatt a `{m}` válasza megszakadt – próbáld újra 5 másodperc múlva!)*"
                 return gen(), model_name
             except Exception as e:
                 last_error = e
                 time.sleep(0.5)
     raise RuntimeError(f"Minden modell foglalt: {last_error}")
+
 
 def generate_new_scenario(category, key, preferred_model, fallback_models):
     seed = random.randint(1000, 99999)

@@ -51,7 +51,6 @@ def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.5):
                 time.sleep(0.5)
     raise RuntimeError(f"Minden modell foglalt: {last_error}")
 
-
 def generate_new_scenario(category, key, preferred_model, fallback_models):
     seed = random.randint(1000, 99999)
     models_to_try = ["gemini-3.5-flash-lite", preferred_model] + [m for m in fallback_models if m not in ("gemini-3.5-flash-lite", preferred_model)]
@@ -153,9 +152,9 @@ else:
     st.info("„Én ültettem, Apollós öntözött, de a növekedést Isten adta.” A **vetés minőségét, a jó sáfárságot és a terhek arányosságát** mérjük.")
 
     PRESETS = {
-        "1. Egyéni magvetés (pl. Mai Ige + kis ajándék)": ("Negyedéves Mai Ige + kis ajándék", 93000, 0, 220, 95, 8, 1, 52, False, 0),
-        "2. Nagy költségű 1 hetes tábor (pl. külföldi csapattal)": ("1 hetes angol tábor külföldi csapattal", 8000000, 2, 30, 15, 1000, 20, 1, True, 2),
-        "3. Helyi éves gyülekezeti / ifjúsági program": ("Helyi közösségi est / klub", 250000, 1, 80, 45, 200, 5, 40, False, 1),
+        "1. Egyéni magvetés (Mai Ige + ajándék)": ("Negyedéves Mai Ige + kis ajándék", 93000, 0, 220, 95, 8, 1, 52, False, 0),
+        "2. Nagy költségű 1 hetes tábor": ("1 hetes angol tábor külföldi csapattal", 8000000, 2, 30, 15, 1000, 20, 1, True, 2),
+        "3. Helyi éves gyülekezeti program": ("Helyi közösségi est / klub", 250000, 1, 80, 45, 200, 5, 40, False, 1),
     }
 
     def apply_preset():
@@ -163,10 +162,10 @@ else:
         st.session_state["c_name"], st.session_state["c_cost"], st.session_state["c_fund"], st.session_state["c_reach"], st.session_state["c_ext"], st.session_state["c_hours"], st.session_state["c_vol"], st.session_state["c_weeks"], st.session_state["c_paid"], st.session_state["c_touch"] = vals
 
     if "c_name" not in st.session_state:
-        st.session_state["calc_preset"] = list(PRESETS.keys())[0]
+        st.session_state["calc_preset"] = next(iter(PRESETS))
         apply_preset()
 
-    st.selectbox("⚡ Gyors sablon betöltése (utána szabadon átírhatsz bármit):", list(PRESETS.keys()), key="calc_preset", on_change=apply_preset)
+    st.radio("⚡ Sablon választása (alatta bármit szabadon átírhatsz):", list(PRESETS.keys()), key="calc_preset", on_change=apply_preset, horizontal=True)
 
     c1, c2 = st.columns(2)
     with c1:

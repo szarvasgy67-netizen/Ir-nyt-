@@ -1,12 +1,10 @@
 import streamlit as st
-import json
 import random
 from google import genai
 from google.genai import types
 
 st.set_page_config(page_title="Kegyelem & Igazság – Dinamikus Szimulátor", layout="wide")
 
-# --- IDE ILLESZD BE A BETŰMÉRET FINOMÍTÁSÁT ---
 st.markdown("""
     <style>
     html, body, [class*="css"] {
@@ -24,7 +22,6 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-# ----------------------------------------------
 
 st.title("🧭 Kegyelem & Igazság – Dinamikus Szituációs Szimulátor")
 st.caption("Minden körben új, valós élethelyzeteken alapuló próbatétel: nyitott befogadás, bibliai iránytű és józan határok.")
@@ -44,43 +41,15 @@ available_models = [
     "gemini-4-hydrogen"
 ]
 
-
 selected_model = st.sidebar.selectbox("🤖 Gemini Modell:", available_models, index=0)
 
 @st.cache_resource
 def get_gemini_client(key):
     return genai.Client(api_key=key)
 
-def call_gemini_json(prompt, key, preferred_model, fallback_models):
-    """Új, strukturált szituáció generálása JSON formátumban."""
-    models_to_try = [preferred_model] + [m for m in fallback_models if m != preferred_model]
-    cfg = types.GenerateContentConfig(
-        temperature=0.95,
-        response_mime_type="application/json"
-    )
-    client = get_gemini_client(key)
-    last_error = None
-    for model_name in models_to_try:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=cfg
-            )
-            return json.loads(response.text)
-        except Exception as e:
-            last_error = e
-            continue
-    raise RuntimeError(f"Nem sikerült új szituációt generálni: {last_error}")
-
 def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.5):
-    models_to_try = ["gemini-3.5-flash-lite", preferred_model] + [
-        m for m in fallback_models if m not in ("gemini-3.5-flash-lite", preferred_model)
-    ]
-    cfg = types.GenerateContentConfig(
-        temperature=temp,
-        thinking_config=types.ThinkingConfig(thinking_level="minimal")
-    )
+    models_to_try = [preferred_model] + [m for m in fallback_models if m != preferred_model]
+    cfg = types.GenerateContentConfig(temperature=temp)
     client = get_gemini_client(key)
     last_error = None
     for model_name in models_to_try:
@@ -111,11 +80,7 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
     models_to_try = ["gemini-3.5-flash-lite", preferred_model] + [
         m for m in fallback_models if m not in ("gemini-3.5-flash-lite", preferred_model)
     ]
-    
-    cfg = types.GenerateContentConfig(
-        temperature=0.95,
-        thinking_config=types.ThinkingConfig(thinking_level="minimal")
-    )
+    cfg = types.GenerateContentConfig(temperature=0.95)
     
     gen_prompt = f"""
     Készíts egy életszerű, valós magyar élethelyzetet (mag: {seed}) a keresztény kommunikáció (Kegyelem, Igazság, Határhúzás) tesztelésére.
@@ -141,19 +106,16 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
             parts = [p.strip() for p in response.text.split("|||")]
             if len(parts) >= 5:
                 return {
-                    "title": parts,
-                    "context": parts,
-                    "persona_prompt": parts,
-                    "hidden_motivation": parts,
-                    "opening_line": parts.strip('"')
+                    "title": parts[0],
+                    "context": parts[1],
+                    "persona_prompt": parts[2],
+                    "hidden_motivation": parts[3],
+                    "opening_line": parts[4].strip('"')
                 }
         except Exception as e:
             last_error = e
             continue
     raise RuntimeError(f"Nem sikerült generálni: {last_error}")
-
-
-
 # --- OLDALSÁV: MÓDVÁLASZTÁS ---
 st.sidebar.divider()
 mode = st.sidebar.radio(
@@ -222,16 +184,16 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
             [f"{'Másik fél' if m['role']=='assistant' else 'Felhasználó'}: {m['content']}" for m in st.session_state["rk_messages"]]
         )
         roleplay_prompt = f"""
-        Szerepjátékot játszol. Maradj végig 100%-ban a karakteredben! Ne adj tanácsot, ne lépj ki a szerepből!
+        Szerepjátékot játszol. Te KIZÁRÓLAG a másik fél szerepét játszod, SOHA nem beszélhetsz a Felhasználó nevében és nem írhatsz választ helyette!
         
         HELYZET: {scen['context']}
-        KARAKTERED ÉS SZABÁLYAID: {scen['persona_prompt']}
-        REJTETT MOTIVÁCIÓD: {scen['hidden_motivation']}
+        A TE KARAKTERED (AI): {scen['persona_prompt']}
+        A TE REJTETT MOTIVÁCIÓD: {scen['hidden_motivation']}
 
         EDDIGI BESZÉLGETÉS:
         {history_text}
 
-        Reagálj természetesen, életszerűen (2-4 mondatban) a Felhasználó utolsó megszólalására a karaktered személyisége és rejtett motivációja alapján:
+        Írd meg KIZÁRÓLAG a te karaktered következő 2-3 mondatos reakcióját a Felhasználó utolsó mondatára:
         """
 
         with st.chat_message("assistant"):

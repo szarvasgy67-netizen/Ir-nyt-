@@ -35,11 +35,12 @@ else:
     api_key = st.sidebar.text_input("Google Gemini API Key:", type="password")
 
 available_models = [
-    "gemini-3.8-flash",
     "gemini-3.5-flash-lite",
+    "gemini-3.8-flash",
     "gemini-3.6-flash",
     "gemini-4-hydrogen"
 ]
+
 
 selected_model = st.sidebar.selectbox("🤖 Gemini Modell:", available_models, index=0)
 

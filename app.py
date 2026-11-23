@@ -1,5 +1,6 @@
 import streamlit as st
 import random
+import time
 from google import genai
 from google.genai import types
 
@@ -48,34 +49,34 @@ def get_gemini_client(key):
     return genai.Client(api_key=key)
 
 def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.5):
-    models_to_try = [preferred_model, "gemini-3.5-flash-lite"] + [
-        m for m in fallback_models if m not in (preferred_model, "gemini-3.5-flash-lite")
-    ]
+    models_to_try = [preferred_model] + [m for m in fallback_models if m != preferred_model]
     cfg = types.GenerateContentConfig(temperature=temp)
     client = get_gemini_client(key)
     last_error = None
     for model_name in models_to_try:
-        try:
-            response_stream = client.models.generate_content_stream(
-                model=model_name,
-                contents=prompt,
-                config=cfg
-            )
-            iterator = iter(response_stream)
-            first_chunk = next(iterator)
+        for attempt in range(2):
+            try:
+                response_stream = client.models.generate_content_stream(
+                    model=model_name,
+                    contents=prompt,
+                    config=cfg
+                )
+                iterator = iter(response_stream)
+                first_chunk = next(iterator)
 
-            def text_generator(first=first_chunk, it=iterator):
-                if first and first.text:
-                    yield first.text
-                for chunk in it:
-                    if chunk.text:
-                        yield chunk.text
+                def text_generator(first=first_chunk, it=iterator):
+                    if first and first.text:
+                        yield first.text
+                    for chunk in it:
+                        if chunk.text:
+                            yield chunk.text
 
-            return text_generator(), model_name
-        except Exception as e:
-            last_error = e
-            continue
-    raise RuntimeError(f"Minden Gemini modell hibát adott: {last_error}")
+                return text_generator(), model_name
+            except Exception as e:
+                last_error = e
+                time.sleep(0.5)
+                continue
+    raise RuntimeError(f"Minden Gemini modell foglalt volt: {last_error}")
 
 def generate_new_scenario(category, key, preferred_model, fallback_models):
     seed = random.randint(1000, 99999)
@@ -99,19 +100,21 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
     client = get_gemini_client(key)
     last_error = None
     for model_name in models_to_try:
-        try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=gen_prompt,
-                config=cfg
-            )
-            parts = [p.strip().strip('"') for p in response.text.split("|||")]
-            if len(parts) >= 5:
-                keys = ("title", "context", "persona_prompt", "hidden_motivation", "opening_line")
-                return dict(zip(keys, parts))
-        except Exception as e:
-            last_error = e
-            continue
+        for attempt in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=gen_prompt,
+                    config=cfg
+                )
+                parts = [p.strip().strip('"') for p in response.text.split("|||")]
+                if len(parts) >= 5:
+                    keys = ("title", "context", "persona_prompt", "hidden_motivation", "opening_line")
+                    return dict(zip(keys, parts))
+            except Exception as e:
+                last_error = e
+                time.sleep(0.5)
+                continue
     raise RuntimeError(f"Nem sikerült generálni: {last_error}")
 BEREA_EVAL_CRITERIA = """
 MI A BEREAI GYÜLEKEZETI MINTA ALAPELVE (ApCsel 17:11)?

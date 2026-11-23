@@ -145,12 +145,13 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
                     "context": parts,
                     "persona_prompt": parts,
                     "hidden_motivation": parts,
-                    "opening_line": parts
+                    "opening_line": parts.strip('"')
                 }
         except Exception as e:
             last_error = e
             continue
     raise RuntimeError(f"Nem sikerült generálni: {last_error}")
+
 
 
 # --- OLDALSÁV: MÓDVÁLASZTÁS ---

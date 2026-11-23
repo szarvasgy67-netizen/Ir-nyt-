@@ -48,7 +48,9 @@ def get_gemini_client(key):
     return genai.Client(api_key=key)
 
 def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.5):
-    models_to_try = [preferred_model] + [m for m in fallback_models if m != preferred_model]
+    models_to_try = [preferred_model, "gemini-3.5-flash-lite"] + [
+        m for m in fallback_models if m not in (preferred_model, "gemini-3.5-flash-lite")
+    ]
     cfg = types.GenerateContentConfig(temperature=temp)
     client = get_gemini_client(key)
     last_error = None
@@ -106,17 +108,42 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
             parts = [p.strip() for p in response.text.split("|||")]
             if len(parts) >= 5:
                 return {
-                    "title": parts[0],
-                    "context": parts[1],
-                    "persona_prompt": parts[2],
-                    "hidden_motivation": parts[3],
-                    "opening_line": parts[4].strip('"')
+                    "title": parts,
+                    "context": parts,
+                    "persona_prompt": parts,
+                    "hidden_motivation": parts,
+                    "opening_line": parts.strip('"')
                 }
         except Exception as e:
             last_error = e
             continue
     raise RuntimeError(f"Nem sikerült generálni: {last_error}")
-# --- OLDALSÁV: MÓDVÁLASZTÁS ---
+def run_evaluation(scen, messages, key, pref_model, fallbacks):
+    transcript = "\n".join(
+        [f"{'Másik fél' if m['role']=='assistant' else 'Te'}: {m['content']}" for m in messages]
+    )
+    eval_prompt = f"""
+    Értékeld a felhasználó ('Te') teljesítményét az alábbi szituációs gyakorlatban!
+    
+    HELYZET: {scen['context']}
+    A MÁSIK FÉL REJTETT MOTIVÁCIÓJA (amit a felhasználó nem tudott): {scen['hidden_motivation']}
+
+    BESZÉLGETÉS:
+    {transcript}
+
+    Add meg az értékelést az alábbi bontásban (tömören, őszintén, építően):
+    1. **A lepel lehull:** Hogyan reagált a felhasználó a másik fél rejtett motivációjára? Átlátott-e rajta, vagy csapdába esett?
+    2. **4 pilléres pontozás (1-10 skála + 1 mondat indoklás):**
+       - Kegyelem & Emberi Méltóság
+       - Igazság & Bibliai Hűség
+       - Határhúzás & 'Kígyó-okosság'
+       - Kommunikációs Bölcsesség
+    3. **Fejlesztési javaslat:** 2 konkrét mondat, amivel még bölcsebben kezelhette volna a helyzetet.
+    """
+    stream_gen, _ = stream_gemini_fast(eval_prompt, key, pref_model, fallbacks, temp=0.3)
+    return "".join(list(stream_gen))
+
+# --- OLDALSÁV: MÓDVÁLASZTÁS ÉS VEZÉRLŐGOMBOK ---
 st.sidebar.divider()
 mode = st.sidebar.radio(
     "🎯 Mód kiválasztása:",
@@ -149,6 +176,22 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
                 except Exception as e:
                     st.error(f"Hiba a generáláskor: {e}")
 
+    # Mindig elérhető kiértékelő gomb az oldalsávon
+    if len(st.session_state.get("rk_messages", [])) >= 2 and "dyn_scenario" in st.session_state:
+        if st.sidebar.button("⚖️ Beszélgetés kiértékelése MOST"):
+            with st.spinner("Elemzés készül..."):
+                try:
+                    st.session_state["rk_eval"] = run_evaluation(
+                        st.session_state["dyn_scenario"],
+                        st.session_state["rk_messages"],
+                        api_key,
+                        selected_model,
+                        available_models
+                    )
+                    st.rerun()
+                except Exception as e:
+                    st.sidebar.error(f"Hiba az értékeléskor: {e}")
+
 # --- 1. MÓD: DINAMIKUS SZIMULÁTOR ---
 if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
     if not api_key:
@@ -174,6 +217,15 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
     for msg in st.session_state["rk_messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+
+    # Ha már készült kiértékelés, jelenítsük meg jól látható helyen
+    if "rk_eval" in st.session_state:
+        st.divider()
+        st.markdown("### 📊 Szimulációs Kiértékelés")
+        st.markdown(st.session_state["rk_eval"])
+        with st.expander("🔍 Eredeti karakterleírás és rejtett motiváció megtekintése"):
+            st.write(f"**Rejtett motiváció:** {scen['hidden_motivation']}")
+            st.write(f"**Karakterleírás:** {scen['persona_prompt']}")
 
     if user_input := st.chat_input("Írd le, mit mondasz vagy hogyan reagálsz..."):
         st.session_state["rk_messages"].append({"role": "user", "content": user_input})
@@ -201,45 +253,9 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
                 stream_gen, _ = stream_gemini_fast(roleplay_prompt, api_key, selected_model, available_models, temp=0.7)
                 full_reply = st.write_stream(stream_gen)
                 st.session_state["rk_messages"].append({"role": "assistant", "content": full_reply})
+                st.rerun()
             except Exception as e:
                 st.error(f"Hiba a válaszadáskor: {e}")
-
-    if len(st.session_state["rk_messages"]) >= 3:
-        st.divider()
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("⚖️ Beszélgetés lezárása és kiértékelése", type="primary"):
-                transcript = "\n".join(
-                    [f"{'Másik fél' if m['role']=='assistant' else 'Te'}: {m['content']}" for m in st.session_state["rk_messages"]]
-                )
-                eval_prompt = f"""
-                Értékeld a felhasználó ('Te') teljesítményét az alábbi szituációs gyakorlatban!
-                
-                HELYZET: {scen['context']}
-                A MÁSIK FÉL REJTETT MOTIVÁCIÓJA (amit a felhasználó nem tudott): {scen['hidden_motivation']}
-
-                BESZÉLGETÉS:
-                {transcript}
-
-                Add meg az értékelést az alábbi bontásban (tömören, őszintén, építően):
-                1. **A lepel lehull:** Hogyan reagált a felhasználó a másik fél rejtett motivációjára? Átlátott-e rajta, vagy csapdába esett?
-                2. **4 pilléres pontozás (1-10 skála + 1 mondat indoklás):**
-                   - Kegyelem & Emberi Méltóság
-                   - Igazság & Bibliai Hűség
-                   - Határhúzás & 'Kígyó-okosság'
-                   - Kommunikációs Bölcsesség
-                3. **Fejlesztési javaslat:** 2 konkrét mondat, amivel még bölcsebben kezelhette volna a helyzetet.
-                """
-                with st.spinner("Elemzés készül..."):
-                    stream_gen, _ = stream_gemini_fast(eval_prompt, api_key, selected_model, available_models, temp=0.3)
-                    st.session_state["rk_eval"] = "".join(list(stream_gen))
-
-        if "rk_eval" in st.session_state:
-            st.markdown("### 📊 Szimulációs Kiértékelés")
-            st.markdown(st.session_state["rk_eval"])
-            with st.expander("🔍 Eredeti karakterleírás és rejtett motiváció megtekintése"):
-                st.write(f"**Rejtett motiváció:** {scen['hidden_motivation']}")
-                st.write(f"**Karakterleírás:** {scen['persona_prompt']}")
 
 # --- 2. MÓD: SAJÁT BESZÉLGETÉS ELEMZÉSE ---
 else:

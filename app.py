@@ -151,34 +151,49 @@ else:
                     st.markdown(ai_reply)
                     st.session_state["rk_messages"].append({"role": "assistant", "content": ai_reply})
 
-    if len(st.session_state["rk_messages"]) >= 3:
+        if len(st.session_state["rk_messages"]) >= 3:
         st.divider()
         if st.button("⚖️ Párbeszéd lezárása és kiértékelése (Kegyelem vs. Igazság vs. Határok)", type="primary"):
             if not api_key:
                 st.error("Add meg a Gemini API kulcsot!")
             else:
-                with st.spinner("A párbeszéd teológiai és pszichológiai kiértékelése..."):
-                    history_str = "\n".join([f"{'Keresztény' if m['role']=='user' else 'Beszélgetőpartner'}: {m['content']}" for m in st.session_state["rk_messages"]])
-                    judge_prompt = f"""
-                    Értékeld ki a 'Keresztény' szereplő kommunikációját az alábbi szimulációban!
-                    A szituáció rejtett háttere (amit ő nem tudott előre): {scenario['persona_prompt']}
+                st.subheader("📊 Kiértékelés: Kegyelem, Igazság & Emberi Határok")
+                history_str = "\n".join([f"{'Keresztény' if m['role']=='user' else 'Beszélgetőpartner'}: {m['content']}" for m in st.session_state["rk_messages"]])
+                judge_prompt = f"""
+                Értékeld ki tömören, lényegretörően a 'Keresztény' szereplő kommunikációját az alábbi szimulációban!
+                A szituáció rejtett háttere (amit ő nem tudott előre): {scenario['persona_prompt']}
 
-                    Értékeld 1-10 ponttal a 4 pillért:
-                    1. **Kegyelem & Méltóság** (emberi tisztelet, nyitottság)
-                    2. **Igazság & Bibliai Hűség** (nem adta-e fel a bibliai értékrendet)
-                    3. **Határhúzás & 'Kígyó-okosság'** (átlátott-e a manipuláción, elkerülte-e a kodependens megmentő-szerepet)
-                    4. **Alázat & Bölcsesség** (elfogadta-e, hogy nem lát a másik szívébe, kérdezett-e kioktatás helyett)
+                Értékeld 1-10 ponttal és 1-2 mondatos indoklással a 4 pillért:
+                1. **Kegyelem & Méltóság** (emberi tisztelet, nyitottság)
+                2. **Igazság & Bibliai Hűség** (nem adta-e fel a bibliai értékrendet)
+                3. **Határhúzás & 'Kígyó-okosság'** (átlátott-e a manipuláción, elkerülte-e a kodependens megmentő-szerepet)
+                4. **Alázat & Bölcsesség** (elfogadta-e, hogy nem lát a másik szívébe, kérdezett-e kioktatás helyett)
 
-                    Fedd fel a végén a másik fél rejtett motivációját, és mutasd meg, hol reagált jól a felhasználó, és hol lehetett volna még bölcsebb!
+                Fedd fel 2 mondatban a másik fél rejtett motivációját, és adj 2 konkrét mondatjavaslatot!
 
-                    Párbeszéd:
-                    {history_str}
-                    """
-                    eval_res, model_used = call_gemini_with_fallback(judge_prompt, api_key, selected_model, available_models, temp=0.3)
-                    st.session_state["rk_eval"] = (eval_res, model_used)
-
-    if "rk_eval" in st.session_state:
-        eval_res, model_used = st.session_state["rk_eval"]
-        st.subheader("📊 Kiértékelés: Kegyelem, Igazság & Emberi Határok")
-        st.caption(f"⚡ Bírói modell: `{model_used}`")
-        st.markdown(eval_res)
+                Párbeszéd:
+                {history_str}
+                """
+                client = get_gemini_client(api_key)
+                fast_cfg = types.GenerateContentConfig(
+                    temperature=0.3,
+                    thinking_config=types.ThinkingConfig(thinking_level="minimal")
+                )
+                models_to_try = ["gemini-3.5-flash-lite", "gemini-3.8-flash"] + [
+                    m for m in available_models if m not in ("gemini-3.5-flash-lite", "gemini-3.8-flash")
+                ]
+                for model_name in models_to_try:
+                    try:
+                        stream = client.models.generate_content_stream(
+                            model=model_name, contents=judge_prompt, config=fast_cfg
+                        )
+                        def gen():
+                            for chunk in stream:
+                                if chunk.text:
+                                    yield chunk.text
+                        st.caption(f"⚡ Villámelemzés ezzel a modellel: `{model_name}`")
+                        full_eval = st.write_stream(gen())
+                        st.session_state["rk_eval"] = (full_eval, model_name)
+                        break
+                    except Exception:
+                        continue

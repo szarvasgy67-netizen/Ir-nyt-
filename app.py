@@ -5,6 +5,36 @@ from google import genai
 from google.genai import types
 
 st.set_page_config(page_title="Kegyelem & Igazság – Dinamikus Szimulátor", layout="wide")
+import streamlit as st
+import json
+import random
+from google import genai
+from google.genai import types
+
+st.set_page_config(page_title="Kegyelem & Igazság – Dinamikus Szimulátor", layout="wide")
+
+# --- IDE ILLESZD BE A BETŰMÉRET FINOMÍTÁSÁT ---
+st.markdown("""
+    <style>
+    html, body, [class*="css"] {
+        font-size: 14px !important;
+    }
+    [data-testid="stChatMessageContent"] p {
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+    }
+    h1 {
+        font-size: 1.7rem !important;
+    }
+    h2, h3 {
+        font-size: 1.25rem !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+# ----------------------------------------------
+
+st.title("🧭 Kegyelem & Igazság – Dinamikus Szituációs Szimulátor")
+
 st.title("🧭 Kegyelem & Igazság – Dinamikus Szituációs Szimulátor")
 st.caption("Minden körben új, valós élethelyzeteken alapuló próbatétel: nyitott befogadás, bibliai iránytű és józan határok.")
 

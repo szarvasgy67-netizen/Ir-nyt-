@@ -157,7 +157,7 @@ else:
         "3. Cipősdoboz / egyszeri ajándékakció": ("Gyülekezeti Cipősdoboz-osztás", 450000, 1, 150, 90, 120, 10, 2, False, 0, False),
     }
 
-        def apply_preset():
+    def apply_preset():
         preset_key = st.session_state.get("calc_preset")
         if preset_key not in PRESETS:
             preset_key = next(iter(PRESETS))
@@ -170,7 +170,6 @@ else:
 
     if "c_name" not in st.session_state or st.session_state.get("calc_preset") not in PRESETS:
         apply_preset()
-
 
     st.radio("⚡ Sablon választása (alatta bármit szabadon átírhatsz):", list(PRESETS.keys()), key="calc_preset", on_change=apply_preset, horizontal=True)
 
@@ -192,11 +191,11 @@ else:
         col_sub1, col_sub2 = st.columns(2)
         volunteers_count = col_sub1.number_input("Önkéntesek száma (fő):", min_value=1, step=1, key="c_vol")
         duration_weeks = col_sub2.number_input("Időtartam (hét):", min_value=1, step=1, key="c_weeks")
-        
+
         hrs_per_person_week = volunteer_hours / (volunteers_count * duration_weeks)
         auto_burnout = "Alacsony" if hrs_per_person_week < 5 else ("Közepes" if hrs_per_person_week <= 20 else "Magas")
         burnout_risk = st.select_slider(f"Terhelés ({hrs_per_person_week:.1f} óra/fő/hét → ajánlott: {auto_burnout}):", options=["Alacsony", "Közepes", "Magas"], value=auto_burnout)
-        
+
         touch_options = [
             "Egyszeri tárgyi ajándék / rendezvény (elő-evangelizáció)",
             "Kis ajándék + tartalmas üzenet / olvasmány (rendszeres magvetés)",
@@ -214,7 +213,7 @@ else:
     goodwill_touches = round(ext_reach * (0.80 if touch_idx == 0 else 0.70))
     seed_rate = 0.12 if touch_idx == 0 else (0.30 if touch_idx == 1 else 0.55)
     meaningful_seeds = max(1, round(ext_reach * seed_rate))
-    
+
     follow_mult = 2.5 if has_followup else 0.4
     community_potential = round(meaningful_seeds * 0.08 * follow_mult, 1)
 

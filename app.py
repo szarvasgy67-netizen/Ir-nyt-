@@ -5,13 +5,6 @@ from google import genai
 from google.genai import types
 
 st.set_page_config(page_title="Kegyelem & Igazság – Dinamikus Szimulátor", layout="wide")
-import streamlit as st
-import json
-import random
-from google import genai
-from google.genai import types
-
-st.set_page_config(page_title="Kegyelem & Igazság – Dinamikus Szimulátor", layout="wide")
 
 # --- IDE ILLESZD BE A BETŰMÉRET FINOMÍTÁSÁT ---
 st.markdown("""

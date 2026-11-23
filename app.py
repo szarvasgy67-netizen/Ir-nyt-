@@ -3,7 +3,7 @@ import random
 from google import genai
 from google.genai import types
 
-st.set_page_config(page_title="Kegyelem & Igazság – Dinamikus Szimulátor", layout="wide")
+st.set_page_config(page_title="Bereai Iránytű – Kommunikációs és Határhúzó Szimulátor", layout="wide")
 
 st.markdown("""
     <style>
@@ -23,8 +23,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🧭 Kegyelem & Igazság – Dinamikus Szituációs Szimulátor")
-st.caption("Minden körben új, valós élethelyzeteken alapuló próbatétel: nyitott befogadás, bibliai iránytű és józan határok.")
+st.title("🧭 Bereai Iránytű – Dinamikus Szituációs Szimulátor")
+st.caption("ApCsel 17:11 mintájára: nyitott, tiszteletteljes meghallgatás, józan vizsgálat és kedves, de kemény határhúzás.")
 
 # --- OLDALSÁV: API KULCS ÉS MODELL ---
 st.sidebar.header("🔑 AI Settings")
@@ -85,11 +85,11 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
     cfg = types.GenerateContentConfig(temperature=0.95)
     
     gen_prompt = f"""
-    Készíts egy életszerű, valós magyar élethelyzetet (mag: {seed}) a keresztény kommunikáció (Kegyelem, Igazság, Határhúzás) tesztelésére.
+    Készíts egy életszerű, valós magyar élethelyzetet (mag: {seed}) a bereai típusú keresztény kommunikáció (nyitott meghallgatás, józan vizsgálat, kedves de kemény határhúzás) tesztelésére.
     Témakör: {category}.
     
     SZIGORÚ SZEREPOSZTÁS:
-    - A Felhasználó MINDIG saját maga (egy keresztény hívő). NE adj neki kitalált nevet!
+    - A Felhasználó MINDIG saját maga (egy józan keresztény hívő). NE adj neki kitalált nevet!
     - Az AI MINDIG a másik fél (pl. kolléga, rokon, gyülekezeti tag, vezető, ismerős), aki megszólítja a Felhasználót.
     
     Válaszolj PONTOSAN ebben az 5 elemű formátumban, '|||' jellel elválasztva, sortörések nélkül:
@@ -118,27 +118,35 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
             last_error = e
             continue
     raise RuntimeError(f"Nem sikerült generálni: {last_error}")
+BEREA_EVAL_CRITERIA = """
+MI A BEREAI GYÜLEKEZETI MINTA ALAPELVE (ApCsel 17:11)?
+1. **Készséges, nyitott meghallgatás:** Nem előítéletes, nem támad azonnal, tisztelettel és emberi méltósággal hallgatja meg a másikat.
+2. **Kritikus, józan vizsgálat:** Nem hisz el mindent vakon, nem hatódik meg a kenetteljes, tekintélyelvű vagy érzelmi zsaroló frázisoktól, hanem józan ésszel és a Szentírás mérlegén vizsgál meg minden állítást.
+3. **Kedves, de kőkemény határhúzás:** Kerüli a mézesmázos képmutatást és alakoskodást. Nem személyeskedik, de szelíd, egyenes, megalkuvás nélküli határokat húz ('igen-igen, nem-nem').
+"""
+
 def run_evaluation(scen, messages, key, pref_model, fallbacks):
     transcript = "\n".join(
         [f"{'Másik fél' if m['role']=='assistant' else 'Te'}: {m['content']}" for m in messages]
     )
     eval_prompt = f"""
-    Értékeld a felhasználó ('Te') teljesítményét az alábbi szituációs gyakorlatban!
-    
+    Értékeld a felhasználó ('Te') teljesítményét az alábbi szituációs gyakorlatban a **BEREAI GYÜLEKEZETI MINTA** alapján!
+    {BEREA_EVAL_CRITERIA}
+
     HELYZET: {scen['context']}
     A MÁSIK FÉL REJTETT MOTIVÁCIÓJA (amit a felhasználó nem tudott): {scen['hidden_motivation']}
 
     BESZÉLGETÉS:
     {transcript}
 
-    Add meg az értékelést az alábbi bontásban (tömören, őszintén, építően):
-    1. **A lepel lehull:** Hogyan reagált a felhasználó a másik fél rejtett motivációjára? Átlátott-e rajta, vagy csapdába esett?
-    2. **4 pilléres pontozás (1-10 skála + 1 mondat indoklás):**
-       - Kegyelem & Emberi Méltóság
-       - Igazság & Bibliai Hűség
-       - Határhúzás & 'Kígyó-okosság'
-       - Kommunikációs Bölcsesség
-    3. **Fejlesztési javaslat:** 2 konkrét mondat, amivel még bölcsebben kezelhette volna a helyzetet.
+    Add meg az értékelést az alábbi bontásban (tömören, őszintén, mindenféle vallásos maszlag és alakoskodás nélkül):
+    1. **Bereai mérleg (A lepel lehull):** Mennyire sikerült egyszerre nyitottnak maradni, ugyanakkor józanul megvizsgálni a másik fél szándékát és átlátni a manipuláción?
+    2. **4 bereai pillér pontozása (1-10 skála + 1 mondat indoklás):**
+       - **Nyitott & Tiszteletteljes Meghallgatás** (ítélkezésmentes, emberi odafordulás)
+       - **Józan Vizsgálat & Kritikai Tisztánlátás** (nem dől be érzelmi/lelki nyomásnak, tényeket és bibliai alapot kér)
+       - **Kedves, de Kemény Határhúzás** (határozott, megalkuvás nélküli kiállás személyeskedés nélkül)
+       - **Álarc nélküli Őszinteség** (képmutatás-mentes, egyenes beszéd a művi udvariaskodás helyett)
+    3. **Bereai válasz-alternatíva:** 2 konkrét, természetes, egyenes magyar mondat (TILOS a kenetteljes zsargon!), amivel még higgadtabban és szilárdabban lehetett volna meghúzni a határt.
     """
     stream_gen, _ = stream_gemini_fast(eval_prompt, key, pref_model, fallbacks, temp=0.3)
     return "".join(list(stream_gen))
@@ -176,10 +184,9 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
                 except Exception as e:
                     st.error(f"Hiba a generáláskor: {e}")
 
-    # Mindig elérhető kiértékelő gomb az oldalsávon
     if len(st.session_state.get("rk_messages", [])) >= 2 and "dyn_scenario" in st.session_state:
         if st.sidebar.button("⚖️ Beszélgetés kiértékelése MOST"):
-            with st.spinner("Elemzés készül..."):
+            with st.spinner("Bereai elemzés készül..."):
                 try:
                     st.session_state["rk_eval"] = run_evaluation(
                         st.session_state["dyn_scenario"],
@@ -212,16 +219,15 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
 
     st.subheader(f"🎭 {scen['title']}")
     st.info(f"**Helyzetkép:** {scen['context']}")
-    st.caption("⚠️ *A másik fél valódi szándékát nem ismered. Figyeld a jeleket, kérdezz okosan, és tartsd meg az egyensúlyt!*")
+    st.caption("⚠️ *A másik fél valódi szándékát nem ismered. Hallgasd meg nyitottan, vizsgáld meg józanul, és húzz tiszta határokat!*")
 
     for msg in st.session_state["rk_messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Ha már készült kiértékelés, jelenítsük meg jól látható helyen
     if "rk_eval" in st.session_state:
         st.divider()
-        st.markdown("### 📊 Szimulációs Kiértékelés")
+        st.markdown("### 📊 Bereai Kiértékelés")
         st.markdown(st.session_state["rk_eval"])
         with st.expander("🔍 Eredeti karakterleírás és rejtett motiváció megtekintése"):
             st.write(f"**Rejtett motiváció:** {scen['hidden_motivation']}")
@@ -259,34 +265,34 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
 
 # --- 2. MÓD: SAJÁT BESZÉLGETÉS ELEMZÉSE ---
 else:
-    st.subheader("📋 Valós beszélgetés kiértékelése")
-    st.info("Másold be egy megtörtént beszélgetésedet (pl. Messenger, e-mail, gyülekezeti vagy családi vita), és az AI elemzi a Kegyelem, Igazság, Határhúzás és Kodependencia szempontjából.")
+    st.subheader("📋 Valós beszélgetés bereai kiértékelése")
+    st.info("Másold be egy megtörtént beszélgetésedet (pl. Messenger, e-mail, gyülekezeti vagy családi vita), és az AI elemzi a Bereai Minta (nyitott meghallgatás, józan vizsgálat, kedves de kemény határhúzás) alapján.")
     user_transcript = st.text_area("Másold be ide a beszélgetés szövegét:", height=220, placeholder="Én: ...\nMásik fél: ...")
 
-    if st.button("⚖️ Kiértékelés a 4 pillér alapján", type="primary"):
+    if st.button("⚖️ Kiértékelés a Bereai Minta alapján", type="primary"):
         if not api_key:
             st.error("Add meg a Gemini API kulcsot az oldalsávon!")
         elif not user_transcript.strip():
             st.warning("Írj vagy másolj be egy beszélgetést!")
         else:
             eval_prompt = f"""
-            Elemezd tömören, lényegretörően az alábbi beszélgetést a 'Kegyelem & Igazság – Emberi Határhúzás' modell alapján!
-            Ne feledd: az ember nem lát a másik szívébe, ezért a szeretet mellé józan határok és pszichológiai tisztánlátás is kell.
+            Elemezd tömören, lényegretörően az alábbi beszélgetést a **BEREAI GYÜLEKEZETI MINTA** alapján!
+            {BEREA_EVAL_CRITERIA}
 
-            Értékeld 1-10 skálán és 1-2 mondattal indokold ezt a 4 tengelyt:
-            1. **Kegyelem & Emberi Méltóság** (ítélkezésmentes tisztelet, előítélet-mentesség)
-            2. **Igazság & Bibliai Hűség** (nem relativizálja az értékrendjét, nem hódol be)
-            3. **Határhúzás & 'Kígyó-okosság'** (felismeri-e a manipulációt, nem esik-e kodependens 'Megmentő' szerepbe)
-            4. **Kommunikációs Bölcsesség** (kérdező, szelíd attitűd kioktatás helyett)
+            Értékeld 1-10 skálán és 1-2 mondattal indokold ezt a 4 bereai pillért:
+            1. **Nyitott & Tiszteletteljes Meghallgatás** (ítélkezésmentes, emberi odafordulás)
+            2. **Józan Vizsgálat & Kritikai Tisztánlátás** (nem dől be érzelmi/lelki nyomásnak, tényeket és bibliai alapot kér)
+            3. **Kedves, de Kemény Határhúzás** (határozott, megalkuvás nélküli kiállás személyeskedés nélkül)
+            4. **Álarc nélküli Őszinteség** (képmutatás-mentes, egyenes beszéd a művi udvariaskodás helyett)
 
-            Adj a végén 2-3 konkrét mondatot, hogyan lehetett volna még kiegyensúlyozottabban reagálni!
+            Adj a végén 2-3 konkrét, természetes, egyenes magyar mondatot (TILOS a kenetteljes zsargon!), hogyan lehetett volna még higgadtabban és szilárdabban meghúzni a határt!
 
             Beszélgetés:
             {user_transcript}
             """
             try:
                 stream_gen, model_used = stream_gemini_fast(eval_prompt, api_key, selected_model, available_models, temp=0.3)
-                st.caption(f"⚡ Villámelemzés ezzel a modellel: `{model_used}`")
+                st.caption(f"⚡ Bereai villámelemzés ezzel a modellel: `{model_used}`")
                 st.write_stream(stream_gen)
             except Exception as e:
                 st.error(f"Elemzési hiba: {e}")

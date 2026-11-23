@@ -87,7 +87,6 @@ def stream_gemini_fast(prompt, key, preferred_model, fallback_models, temp=0.5):
 
 def generate_new_scenario(category, key, preferred_model, fallback_models):
     seed = random.randint(1000, 99999)
-    # A leggyorsabb lite modellel indítunk a villámgyors generálásért
     models_to_try = ["gemini-3.5-flash-lite", preferred_model] + [
         m for m in fallback_models if m not in ("gemini-3.5-flash-lite", preferred_model)
     ]
@@ -98,11 +97,15 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
     )
     
     gen_prompt = f"""
-    Készíts egy életszerű, feszült, valós magyar élethelyzetet (mag: {seed}) a keresztény kommunikáció (Kegyelem, Igazság, Határhúzás) tesztelésére.
+    Készíts egy életszerű, valós magyar élethelyzetet (mag: {seed}) a keresztény kommunikáció (Kegyelem, Igazság, Határhúzás) tesztelésére.
     Témakör: {category}.
     
-    Válaszolj PONTOSAN ebben az 5 soros formátumban, '|||' jellel elválasztva (ne írj elé és mögé semmi mást):
-    CÍM ||| HELYZETKÉP (2 mondat) ||| SZEREPINSTRUKCIÓ AZ AI-NAK ||| REJTETT MOTIVÁCIÓ (1 mondat) ||| NYITÓMONDAT
+    SZIGORÚ SZEREPOSZTÁS:
+    - A Felhasználó MINDIG saját maga (egy keresztény hívő). NE adj neki kitalált nevet!
+    - Az AI MINDIG a másik fél (pl. kolléga, rokon, gyülekezeti tag, vezető, ismerős), aki megszólítja a Felhasználót.
+    
+    Válaszolj PONTOSAN ebben az 5 elemű formátumban, '|||' jellel elválasztva, sortörések nélkül:
+    CÍM ||| HELYZETKÉP (2 mondat arról, hol vagy és ki szólít meg téged) ||| AI KARAKTERE (pl. Te Péter vagy, az ifjúsági vezető. Így viselkedsz...) ||| AI REJTETT MOTIVÁCIÓJA (1 mondat) ||| AI NYITÓMONDATA (amivel megszólítja a Felhasználót)
     """
     
     client = get_gemini_client(key)
@@ -117,16 +120,17 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
             parts = [p.strip() for p in response.text.split("|||")]
             if len(parts) >= 5:
                 return {
-                    "title": parts[0],
-                    "context": parts[1],
-                    "persona_prompt": parts[2],
-                    "hidden_motivation": parts[3],
-                    "opening_line": parts[4]
+                    "title": parts,
+                    "context": parts,
+                    "persona_prompt": parts,
+                    "hidden_motivation": parts,
+                    "opening_line": parts
                 }
         except Exception as e:
             last_error = e
             continue
     raise RuntimeError(f"Nem sikerült generálni: {last_error}")
+
 
 # --- OLDALSÁV: MÓDVÁLASZTÁS ---
 st.sidebar.divider()

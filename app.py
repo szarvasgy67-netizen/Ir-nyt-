@@ -105,15 +105,10 @@ def generate_new_scenario(category, key, preferred_model, fallback_models):
                 contents=gen_prompt,
                 config=cfg
             )
-            parts = [p.strip() for p in response.text.split("|||")]
+            parts = [p.strip().strip('"') for p in response.text.split("|||")]
             if len(parts) >= 5:
-                return {
-                    "title": parts,
-                    "context": parts,
-                    "persona_prompt": parts,
-                    "hidden_motivation": parts,
-                    "opening_line": parts.strip('"')
-                }
+                keys = ("title", "context", "persona_prompt", "hidden_motivation", "opening_line")
+                return dict(zip(keys, parts))
         except Exception as e:
             last_error = e
             continue
@@ -259,7 +254,6 @@ if mode == "🎲 Dinamikus Szimulátor (Élő szerepjáték)":
                 stream_gen, _ = stream_gemini_fast(roleplay_prompt, api_key, selected_model, available_models, temp=0.7)
                 full_reply = st.write_stream(stream_gen)
                 st.session_state["rk_messages"].append({"role": "assistant", "content": full_reply})
-                st.rerun()
             except Exception as e:
                 st.error(f"Hiba a válaszadáskor: {e}")
 
